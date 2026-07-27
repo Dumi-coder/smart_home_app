@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "143923826533",
+    "project_id": "smarthome-3508e",
+    "storage_bucket": "smarthome-3508e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:143923826533:android:796fa145db4274777f9b8c",
+        "android_client_info": {
+          "package_name": "com.MAD.smart_home_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDO6xB0hB_eloNOzeLp2_aKptQkgkmYUfs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
