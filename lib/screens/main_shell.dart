@@ -17,7 +17,7 @@ class _MainShellState extends State<MainShell> {
 
   final List<Widget> _screens = [
     const HomeScreen(),
-    _PlaceholderScreen(title: 'All Devices', icon: Icons.devices_other),
+    _PlaceholderScreen(title: 'Cameras', icon: Icons.videocam_outlined),
     _PlaceholderScreen(title: 'Energy Analysis', icon: Icons.bar_chart),
     _PlaceholderScreen(title: 'Notifications', icon: Icons.notifications_outlined),
     _PlaceholderScreen(title: 'Profile', icon: Icons.person_outline),
@@ -55,7 +55,7 @@ class _MainShellState extends State<MainShell> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _navItem(Icons.home_filled, 'Home', 0),
-          _navItem(Icons.devices_other, 'Devices', 1),
+          _navItem(Icons.videocam_outlined, 'Cameras', 1),
           _navItem(Icons.bar_chart_rounded, 'Analytics', 2),
           _navItem(Icons.notifications_outlined, 'Alerts', 3),
           _navItem(Icons.person_outline, 'Profile', 4),

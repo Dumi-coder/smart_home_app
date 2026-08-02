@@ -27,8 +27,30 @@ class FirestoreService {
     });
   }
 
+  Future<void> updateFloor(String floorId, String newName) async {
+    await _db.collection('floors').doc(floorId).update({'name': newName});
+  }
+
   Future<void> deleteFloor(String floorId) async {
     await _db.collection('floors').doc(floorId).delete();
+  }
+
+  // ---------------- Rooms ----------------
+
+  Stream<QuerySnapshot> streamRooms(String floorId) {
+    return _db.collection('floors').doc(floorId).collection('rooms').snapshots();
+  }
+
+  Future<void> addRoom(String floorId, String name) async {
+    await _db.collection('floors').doc(floorId).collection('rooms').add({'name': name});
+  }
+
+  Future<void> updateRoom(String floorId, String roomId, String newName) async {
+    await _db.collection('floors').doc(floorId).collection('rooms').doc(roomId).update({'name': newName});
+  }
+
+  Future<void> deleteRoom(String floorId, String roomId) async {
+    await _db.collection('floors').doc(floorId).collection('rooms').doc(roomId).delete();
   }
 
   // ---------------- Devices ----------------
@@ -51,6 +73,32 @@ class FirestoreService {
         .doc(floorId)
         .collection('devices')
         .add(device.toMap());
+  }
+
+  Future<void> addDeviceRaw(String floorId, Map<String, dynamic> data) async {
+    await _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .add(data);
+  }
+
+  Future<void> updateDevice(String floorId, String deviceId, Map<String, dynamic> updates) async {
+    await _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .update(updates);
+  }
+
+  Future<void> deleteDevice(String floorId, String deviceId) async {
+    await _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .delete();
   }
 
   Future<void> updateDeviceStatus(

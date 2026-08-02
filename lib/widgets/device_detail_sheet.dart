@@ -84,6 +84,66 @@ class DeviceDetailSheet extends StatelessWidget {
                   ],
                 ),
               ),
+              IconButton(
+                icon: const Icon(Icons.edit, size: 20, color: AppColors.textSecondary),
+                onPressed: () {
+                  final nameController = TextEditingController(text: device.name);
+                  String selectedType = device.type;
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => StatefulBuilder(
+                      builder: (context, setState) {
+                        return AlertDialog(
+                          title: const Text('Edit Device'),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextField(
+                                controller: nameController,
+                                decoration: const InputDecoration(labelText: 'Device Name'),
+                              ),
+                              DropdownButton<String>(
+                                value: selectedType,
+                                items: ['outlet', 'bulb', 'iron', 'multiswitch', 'camera']
+                                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                                    .toList(),
+                                onChanged: (val) {
+                                  if (val != null) setState(() => selectedType = val);
+                                },
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                            ElevatedButton(
+                              onPressed: () async {
+                                if (nameController.text.trim().isNotEmpty) {
+                                  await service.updateDevice(device.floorId, device.id, {
+                                    'name': nameController.text.trim(),
+                                    'type': selectedType,
+                                  });
+                                  if (ctx.mounted) {
+                                    Navigator.pop(ctx);
+                                    Navigator.pop(context);
+                                  }
+                                }
+                              },
+                              child: const Text('Save'),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete, size: 20, color: AppColors.statusError),
+                onPressed: () async {
+                  await service.deleteDevice(device.floorId, device.id);
+                  if (context.mounted) Navigator.pop(context);
+                },
+              ),
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: Container(

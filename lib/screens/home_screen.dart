@@ -9,6 +9,7 @@ import '../widgets/room_chip.dart';
 import '../widgets/quick_action_card.dart';
 import '../widgets/device_card.dart';
 import '../widgets/device_detail_sheet.dart';
+import 'all_devices_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -94,6 +95,13 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       ),
+      floatingActionButton: _selectedFloorId != null
+          ? FloatingActionButton(
+              onPressed: () => _showAddDeviceDialog(context),
+              backgroundColor: AppColors.primaryActive,
+              child: const Icon(Icons.add, color: AppColors.textOnDark),
+            )
+          : null,
     );
   }
 
@@ -210,48 +218,58 @@ class _HomeScreenState extends State<HomeScreen> {
           final activeCount =
               allDevices.where((d) => d.status == DeviceStatus.on).length;
 
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(color: AppColors.divider),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primaryActive,
-                    shape: BoxShape.circle,
-                  ),
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AllDevicesScreen(),
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  '$activeCount device${activeCount == 1 ? '' : 's'} active',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppRadius.card),
+                border: Border.all(color: AppColors.divider),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primaryActive,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                const Text(
-                  'Manage',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                  const SizedBox(width: 10),
+                  Text(
+                    '$activeCount device${activeCount == 1 ? '' : 's'} active',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const Spacer(),
+                  const Text(
+                    'Manage',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.settings_outlined,
+                    size: 16,
                     color: AppColors.textSecondary,
                   ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.settings_outlined,
-                  size: 16,
-                  color: AppColors.textSecondary,
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -270,9 +288,17 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          itemCount: floors.length,
+          itemCount: floors.length + 1,
           separatorBuilder: (_, _) => const SizedBox(width: 10),
           itemBuilder: (context, index) {
+            if (index == floors.length) {
+              return FloorChip(
+                label: 'Add Floor',
+                icon: Icons.add,
+                isSelected: false,
+                onTap: () => _showManageFloorDialog(context, null, null),
+              );
+            }
             final doc = floors[index];
             final data = doc.data() as Map<String, dynamic>;
             final name = data['name'] ?? 'Unnamed';
@@ -288,6 +314,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _selectedRoom = 'All';
                 });
               },
+              onLongPress: () => _showManageFloorDialog(context, doc.id, name),
             );
           },
         ),
@@ -398,29 +425,33 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildRoomChips() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: StreamBuilder<List<Device>>(
-        stream: _service.streamDevices(_selectedFloorId!),
+      child: StreamBuilder<QuerySnapshot>(
+        stream: _service.streamRooms(_selectedFloorId!),
         builder: (context, snap) {
-          final devices = snap.data ?? [];
-          // Extract unique room names
-          final rooms = <String>{'All'};
-          for (final d in devices) {
-            if (d.room != null && d.room!.isNotEmpty) {
-              rooms.add(d.room!);
-            }
-          }
-          // If there's only "All" (no rooms defined), don't show chips
-          if (rooms.length <= 1) return const SizedBox.shrink();
+          final roomDocs = snap.data?.docs ?? [];
+          final rooms = ['All', ...roomDocs.map((d) => (d.data() as Map<String, dynamic>)['name'] as String)];
 
           return SizedBox(
             height: 42,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: rooms.length,
+              itemCount: rooms.length + 1,
               separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (context, index) {
-                final room = rooms.elementAt(index);
+                if (index == rooms.length) {
+                  return RoomChip(
+                    label: 'Add Room',
+                    icon: Icons.add,
+                    isSelected: false,
+                    onTap: () => _showManageRoomDialog(context, null, null),
+                  );
+                }
+                final room = rooms[index];
+                String? roomId;
+                if (room != 'All') {
+                  roomId = roomDocs[index - 1].id;
+                }
                 return RoomChip(
                   label: room,
                   icon: room == 'All' ? null : RoomChip.iconForRoom(room),
@@ -428,6 +459,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     setState(() => _selectedRoom = room);
                   },
+                  onLongPress: room == 'All' ? null : () => _showManageRoomDialog(context, roomId, room),
                 );
               },
             ),
@@ -531,6 +563,149 @@ class _HomeScreenState extends State<HomeScreen> {
   // ═══════════════════════════════════════════════
   //  HELPERS
   // ═══════════════════════════════════════════════
+  // ═══════════════════════════════════════════════
+  //  MANAGE DIALOGS
+  // ═══════════════════════════════════════════════
+  void _showManageFloorDialog(BuildContext context, String? floorId, String? currentName) {
+    final controller = TextEditingController(text: currentName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(floorId == null ? 'Add Floor' : 'Edit Floor'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Floor name (e.g. Ground Floor)'),
+        ),
+        actions: [
+          if (floorId != null)
+            TextButton(
+              onPressed: () async {
+                await _service.deleteFloor(floorId);
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Delete', style: TextStyle(color: AppColors.statusError)),
+            ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              if (controller.text.trim().isNotEmpty) {
+                if (floorId == null) {
+                  await _service.addFloor(name: controller.text.trim());
+                } else {
+                  await _service.updateFloor(floorId, controller.text.trim());
+                }
+              }
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: Text(floorId == null ? 'Add' : 'Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showManageRoomDialog(BuildContext context, String? roomId, String? currentName) {
+    final controller = TextEditingController(text: currentName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(roomId == null ? 'Add Room' : 'Edit Room'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Room name (e.g. Living Room)'),
+        ),
+        actions: [
+          if (roomId != null)
+            TextButton(
+              onPressed: () async {
+                await _service.deleteRoom(_selectedFloorId!, roomId);
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Delete', style: TextStyle(color: AppColors.statusError)),
+            ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              if (controller.text.trim().isNotEmpty) {
+                if (roomId == null) {
+                  await _service.addRoom(_selectedFloorId!, controller.text.trim());
+                } else {
+                  await _service.updateRoom(_selectedFloorId!, roomId, controller.text.trim());
+                }
+              }
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: Text(roomId == null ? 'Add' : 'Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddDeviceDialog(BuildContext context) {
+    final nameController = TextEditingController();
+    String selectedType = 'outlet';
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Add Device'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Device Name (e.g. Desk Lamp)'),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedType,
+                  decoration: const InputDecoration(labelText: 'Device Type'),
+                  items: ['outlet', 'bulb', 'iron', 'multiswitch', 'camera']
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => selectedType = val);
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: () async {
+                  if (nameController.text.trim().isNotEmpty) {
+                    String? assignedRoom = _selectedRoom == 'All' ? null : _selectedRoom;
+                    final map = {
+                      'name': nameController.text.trim(),
+                      'type': selectedType,
+                      'x': 0,
+                      'y': 0,
+                      'status': 'OFF',
+                      if (assignedRoom != null) 'room': assignedRoom,
+                    };
+                    if (selectedType == 'iron') {
+                      map['maxOnDurationMinutes'] = 15;
+                    } else if (selectedType == 'multiswitch') {
+                      map['switches'] = [
+                        {'id': 'sw1', 'label': 'Switch 1', 'state': false}
+                      ];
+                    }
+
+                    await _service.addDeviceRaw(_selectedFloorId!, map);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  }
+                },
+                child: const Text('Add'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   String _getGreeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) return 'Good morning,';
