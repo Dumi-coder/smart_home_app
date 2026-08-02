@@ -1,0 +1,87 @@
+SMART HOME APP - UI IMPLEMENTATION REQUIREMENTS
+==============================================
+
+PROJECT GOAL:
+Transform the current Flutter app into a high-fidelity Smart Home management system based on Figma screenshots.
+
+1. GLOBAL UI STYLING
+--------------------
+* Theme: Light/Soft Cream Background (#F5F5F0).
+* Primary Color (Active): Lime Green (#D4E157).
+* Secondary Colors:
+    - Alerts/Off: Soft Red
+    - Security: Calm Blue
+    - Lights: Soft Yellow
+* Components:
+    - Rounded corners (border-radius: 20-30px).
+    - Floating pill-shaped Bottom Navigation Bar (Dark Grey/Black).
+    - Custom Icon Sets for Devices (Lights, Refrigerator, TV, Oven, etc.).
+
+2. SCREEN SPECIFICATIONS
+------------------------
+
+A. HOME SCREEN (DASHBOARD)
+* Header:
+    - Rounded User Profile Image.
+    - Greeting ("Good morning, [Name]").
+    - Icons: Calendar, Automation (Robot), Notifications (with Badge).
+* Status Bar: "X devices active" with a "Manage" chevron link.
+* Floor Selector: Horizontal scrollable chips (Ground, 1st, Garage, Garden).
+* Quick Action Buttons: 3 Large cards (All Lights, Turn Off All, Lock House).
+* Room Selector: Horizontal scrollable chips (Living Room, Kitchen, Bedroom).
+* Device Grid:
+    - 2-column grid of cards.
+    - Each card: Icon, Name, Sub-status (e.g., 100%, 4°C), ON/OFF text.
+    - Power toggle button in top-right of the card.
+* Room Details (Living Room):
+    - Overlay/Panel for "Smart TV Control".
+    - Directional Pad (OK center).
+    - Media Controls: Home, Settings, Back, Rewind, Play/Pause, Fast Forward.
+    - Linear Volume Slider.
+
+B. ALL DEVICES SCREEN
+* Header: Back button, Title "All Devices", Status summary, Filter icon.
+* Search: Large rounded "Search devices or rooms..." bar.
+* Category Chips: All, Lights, HVAC, Sensors, Outlets.
+* Device List:
+    - Vertical list of tiles.
+    - Icon, Name, Location (Room - Floor).
+    - Real-time status badge (e.g., ON - Now).
+    - Power consumption badge (e.g., 120W).
+    - Trailing power toggle switch.
+* Add Device: Floating Action Button (+) at bottom-right.
+
+C. ENERGY ANALYSIS SCREEN
+* Header: "Energy Reports", Month selector, Export button.
+* Usage Summary Cards:
+    - "Today's Usage" (kWh + USD est).
+    - "Monthly Total" (% change vs last month).
+* Charts (Integration with fl_chart):
+    - Usage Overview: Bar chart (Usage vs Day of Week).
+    - Room Comparison: Donut chart with legend and percentages.
+* Top Consumers: List of devices with their specific kWh usage.
+
+D. SECURITY CAMERA SCREEN
+* Live Feed: Large video player view.
+* Controls:
+    - "LIVE" status indicator.
+    - PTZ Control Overlay (Directional pad).
+    - Action Buttons: Mic (Intercom), Camera (Snapshot), Fullscreen.
+* Navigation: Chips for camera locations (Exterior, Ground Floor, etc.).
+* Camera Switcher: Horizontal scrollable thumbnails of all active cameras.
+
+E. NOTIFICATIONS SCREEN
+* Header: "Notifications" with count, "Mark all read" button.
+* Filters: All, Unread, Critical.
+* Notification Cards:
+    - Severity coding (Red border = Critical, Yellow = Warning, Blue = Info).
+    - Device/Event title, detailed description, room location, timestamp.
+    - Dismiss (X) button.
+
+3. FUNCTIONAL REQUIREMENTS
+--------------------------
+* State Management: Real-time synchronization using Provider and Firestore.
+* Safety Logic: Auto-shutoff for safety-critical devices (e.g., Irons) with persistent timers.
+* Scheduling: Capability to set Start/End times for lights/plugs.
+* Navigation: Custom Persistent Bottom Nav with active state indicators.
+* Animations: Smooth transitions between screens and room detail panels.
