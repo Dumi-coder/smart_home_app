@@ -1,3 +1,4 @@
+import 'simulator_screen.dart';
 import '../services/seed_data.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -55,6 +56,16 @@ class FloorsScreen extends StatelessWidget {
                   const SnackBar(content: Text('Sample data seeded!')),
                 );
               }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.developer_board),
+            tooltip: 'Hardware Simulator',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => SimulatorScreen()),
+              );
             },
           ),
         ],
