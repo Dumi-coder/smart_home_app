@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/device.dart';
 import '../services/firestore_service.dart';
+import '../widgets/multiswitch_tile.dart';
 
 class FloorDetailScreen extends StatelessWidget {
   final String floorId;
@@ -78,6 +79,11 @@ class FloorDetailScreen extends StatelessWidget {
             itemCount: devices.length,
             itemBuilder: (context, index) {
               final device = devices[index];
+
+              if (device is MultiSwitchDevice) {
+                return MultiSwitchTile(device: device, service: _service);
+              }
+
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: ListTile(
