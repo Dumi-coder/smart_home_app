@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'screens/floors_screen.dart';
+import 'screens/main_shell.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,12 +18,10 @@ class SmartHomeApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Smart Home Monitor',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
-      home: FloorsScreen(),
+      title: 'Smart Home',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      home: const MainShell(),
     );
   }
 }

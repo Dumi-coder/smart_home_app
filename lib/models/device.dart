@@ -37,6 +37,7 @@ abstract class Device {
   final double x;
   final double y;
   final DeviceStatus status;
+  final String? room;
 
   Device({
     required this.id,
@@ -46,6 +47,7 @@ abstract class Device {
     required this.x,
     required this.y,
     required this.status,
+    this.room,
   });
 
   /// Every subclass must know how to serialize its own extra fields.
@@ -60,6 +62,7 @@ abstract class Device {
     final name = data['name'] ?? 'Unnamed';
     final x = (data['x'] ?? 0).toDouble();
     final y = (data['y'] ?? 0).toDouble();
+    final room = data['room'] as String?;
 
     switch (type) {
       case 'multiswitch':
@@ -70,6 +73,7 @@ abstract class Device {
           x: x,
           y: y,
           status: status,
+          room: room,
           switches: (data['switches'] as List<dynamic>? ?? [])
               .map((s) => SwitchItem.fromMap(s as Map<String, dynamic>))
               .toList(),
@@ -82,6 +86,7 @@ abstract class Device {
           x: x,
           y: y,
           status: status,
+          room: room,
           maxOnDurationMinutes: data['maxOnDurationMinutes'] ?? 15,
           turnedOnAt: data['turnedOnAt'] != null
               ? (data['turnedOnAt'] as Timestamp).toDate()
@@ -95,6 +100,7 @@ abstract class Device {
           x: x,
           y: y,
           status: status,
+          room: room,
           scheduleStart: data['scheduleStart'],
           scheduleEnd: data['scheduleEnd'],
         );
@@ -106,6 +112,7 @@ abstract class Device {
           x: x,
           y: y,
           status: status,
+          room: room,
           snapshotUrl: data['snapshotUrl'] ?? '',
         );
       case 'outlet':
@@ -117,6 +124,7 @@ abstract class Device {
           x: x,
           y: y,
           status: status,
+          room: room,
         );
     }
   }
@@ -131,6 +139,7 @@ class OutletDevice extends Device {
     required super.x,
     required super.y,
     required super.status,
+    super.room,
   }) : super(type: 'outlet');
 
   @override
@@ -140,6 +149,7 @@ class OutletDevice extends Device {
     'x': x,
     'y': y,
     'status': statusToString(status),
+    if (room != null) 'room': room,
   };
 }
 
@@ -170,6 +180,7 @@ class MultiSwitchDevice extends Device {
     required super.x,
     required super.y,
     required super.status,
+    super.room,
     required this.switches,
   }) : super(type: 'multiswitch');
 
@@ -181,6 +192,7 @@ class MultiSwitchDevice extends Device {
     'y': y,
     'status': statusToString(status),
     'switches': switches.map((s) => s.toMap()).toList(),
+    if (room != null) 'room': room,
   };
 }
 
@@ -196,6 +208,7 @@ class IronDevice extends Device {
     required super.x,
     required super.y,
     required super.status,
+    super.room,
     required this.maxOnDurationMinutes,
     this.turnedOnAt,
   }) : super(type: 'iron');
@@ -209,6 +222,7 @@ class IronDevice extends Device {
     'status': statusToString(status),
     'maxOnDurationMinutes': maxOnDurationMinutes,
     'turnedOnAt': turnedOnAt != null ? Timestamp.fromDate(turnedOnAt!) : null,
+    if (room != null) 'room': room,
   };
 }
 
@@ -224,6 +238,7 @@ class BulbDevice extends Device {
     required super.x,
     required super.y,
     required super.status,
+    super.room,
     this.scheduleStart,
     this.scheduleEnd,
   }) : super(type: 'bulb');
@@ -237,6 +252,7 @@ class BulbDevice extends Device {
     'status': statusToString(status),
     'scheduleStart': scheduleStart,
     'scheduleEnd': scheduleEnd,
+    if (room != null) 'room': room,
   };
 }
 
@@ -251,6 +267,7 @@ class CameraDevice extends Device {
     required super.x,
     required super.y,
     required super.status,
+    super.room,
     required this.snapshotUrl,
   }) : super(type: 'camera');
 
@@ -262,5 +279,6 @@ class CameraDevice extends Device {
     'y': y,
     'status': statusToString(status),
     'snapshotUrl': snapshotUrl,
+    if (room != null) 'room': room,
   };
 }
