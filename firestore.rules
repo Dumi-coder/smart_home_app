@@ -1,0 +1,39 @@
+rules_version = '2';
+
+// Development rules: open read/write, no auth wired into the app yet
+// (Profile screen shows a static "Alex Morgan" — there's no login flow).
+// Before shipping this anywhere real, add Firebase Auth and replace
+// `allow read, write: if true;` below with `if request.auth != null;`
+// (and tighter per-collection checks where it matters, e.g. only the
+// signed-in owner can edit houseMembers).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /floors/{floorId} {
+      allow read, write: if true;
+      match /rooms/{roomId} {
+        allow read, write: if true;
+      }
+      match /devices/{deviceId} {
+        allow read, write: if true;
+      }
+    }
+    match /usageLogs/{logId} {
+      allow read, write: if true;
+    }
+    match /alerts/{alertId} {
+      allow read, write: if true;
+    }
+    match /energyUsage/{readingId} {
+      allow read, write: if true;
+    }
+    match /houseMembers/{memberId} {
+      allow read, write: if true;
+    }
+    match /scenes/{sceneId} {
+      allow read, write: if true;
+    }
+    match /settings/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
