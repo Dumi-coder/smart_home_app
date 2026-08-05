@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/device.dart';
+import '../models/notification_alert.dart';
+import '../models/house_member.dart';
+import '../models/energy_reading.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -286,5 +289,135 @@ class FirestoreService {
       }
     }
     await batch.commit();
+  }
+
+  // ────────────────────────────────────────────────
+  //  NOTIFICATIONS / ALERTS
+  // ────────────────────────────────────────────────
+
+  /// Typed stream of every alert, newest first.
+  Stream<List<NotificationAlert>> streamNotificationAlerts() {
+    return _db
+        .collection('alerts')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => NotificationAlert.fromFirestore(d)).toList());
+  }
+
+  Future<void> markAlertRead(String alertId) async {
+    await _db.collection('alerts').doc(alertId).update({'acknowledged': true});
+  }
+
+  Future<void> markAllAlertsRead() async {
+    final snap =
+        await _db.collection('alerts').where('acknowledged', isEqualTo: false).get();
+    final batch = _db.batch();
+    for (final doc in snap.docs) {
+      batch.update(doc.reference, {'acknowledged': true});
+    }
+    await batch.commit();
+  }
+
+  Future<void> dismissAlert(String alertId) async {
+    await _db.collection('alerts').doc(alertId).delete();
+  }
+
+  Future<void> addAlert({
+    required String title,
+    required String message,
+    required AlertSeverity severity,
+    String? room,
+    String? deviceId,
+    String icon = 'info',
+  }) async {
+    await _db.collection('alerts').add({
+      'title': title,
+      'message': message,
+      'severity': severityToString(severity),
+      if (room != null) 'room': room,
+      if (deviceId != null) 'deviceId': deviceId,
+      'icon': icon,
+      'timestamp': FieldValue.serverTimestamp(),
+      'acknowledged': false,
+    });
+  }
+
+  // ────────────────────────────────────────────────
+  //  ENERGY USAGE / ANALYSIS
+  // ────────────────────────────────────────────────
+
+  /// Stream of every energy reading, used by the Analysis screen to compute
+  /// today/week/month totals, room breakdowns and top consumers client-side.
+  Stream<List<EnergyReading>> streamEnergyUsage() {
+    return _db
+        .collection('energyUsage')
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => EnergyReading.fromFirestore(d)).toList());
+  }
+
+  Future<void> addEnergyReading(EnergyReading reading) async {
+    await _db.collection('energyUsage').add(reading.toMap());
+  }
+
+  // ────────────────────────────────────────────────
+  //  HOUSE MEMBERS / PROFILE
+  // ────────────────────────────────────────────────
+
+  Stream<List<HouseMember>> streamHouseMembers() {
+    return _db.collection('houseMembers').snapshots().map(
+        (snap) => snap.docs.map((d) => HouseMember.fromFirestore(d)).toList());
+  }
+
+  Future<void> addHouseMember(HouseMember member) async {
+    await _db.collection('houseMembers').add(member.toMap());
+  }
+
+  /// Count of saved scenes, shown as a stat on the Profile screen.
+  Stream<int> streamSceneCount() {
+    return _db.collection('scenes').snapshots().map((s) => s.docs.length);
+  }
+
+  /// Count of distinct rooms across every floor, shown as a stat on the
+  /// Profile screen.
+  Future<int> countDistinctRooms() async {
+    final floorsSnap = await _db.collection('floors').get();
+    int total = 0;
+    for (final floor in floorsSnap.docs) {
+      final roomsSnap =
+          await _db.collection('floors').doc(floor.id).collection('rooms').get();
+      total += roomsSnap.docs.length;
+    }
+    return total;
+  }
+
+  /// Single user preferences document (dark mode / push notifications /
+  /// Firebase sync toggles) shown on the Profile screen.
+  DocumentReference get preferencesDoc =>
+      _db.collection('settings').doc('preferences');
+
+  Stream<DocumentSnapshot> streamPreferences() => preferencesDoc.snapshots();
+
+  Future<void> setPreference(String key, bool value) async {
+    await preferencesDoc.set({key: value}, SetOptions(merge: true));
+  }
+
+  // ────────────────────────────────────────────────
+  //  CAMERAS
+  // ────────────────────────────────────────────────
+
+  /// Cameras grouped under a pseudo-floor id, e.g. "exterior" for outdoor
+  /// cameras that aren't tied to any real floor document.
+  Stream<List<Device>> streamCamerasForGroup(String floorId) {
+    return _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .where('type', isEqualTo: 'camera')
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => Device.fromFirestore(floorId, d)).toList());
   }
 }
