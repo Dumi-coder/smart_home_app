@@ -10,6 +10,7 @@ import '../widgets/quick_action_card.dart';
 import '../widgets/device_card.dart';
 import '../widgets/device_detail_sheet.dart';
 import 'all_devices_screen.dart';
+import 'simulator_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -187,6 +188,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               );
             },
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => SimulatorScreen()),
+              );
+            },
+            child: _headerIcon(Icons.developer_board_outlined),
           ),
         ],
       ),
