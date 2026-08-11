@@ -19,11 +19,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   _RangeMode _mode = _RangeMode.week;
 
   static const List<Color> _roomColors = [
-    AppColors.primaryActiveDark,
-    Color(0xFF81C784),
-    Color(0xFFFFB74D),
-    Color(0xFF64B5F6),
-    Color(0xFFBA68C8),
+    AppColors.brass,
+    AppColors.pine,
+    AppColors.accentIron,
+    AppColors.accentCamera,
+    AppColors.accentMultiswitch,
   ];
 
   static const List<String> _weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -36,7 +36,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: StreamBuilder<List<EnergyReading>>(
           stream: _service.streamEnergyUsage(),
@@ -56,7 +56,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
             final lastMonthDate = DateTime(now.year, now.month - 1, 1);
             final lastMonth = readings.where(
-                (r) => r.date.year == lastMonthDate.year && r.date.month == lastMonthDate.month);
+                    (r) => r.date.year == lastMonthDate.year && r.date.month == lastMonthDate.month);
             final lastMonthTotal = lastMonth.fold<double>(0, (sum, r) => sum + r.kWh);
             final percentChange = lastMonthTotal > 0
                 ? ((monthlyTotal - lastMonthTotal) / lastMonthTotal * 100)
@@ -119,7 +119,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       final weekEnd = weekStart.add(const Duration(days: 6));
       final total = readings
           .where((r) =>
-              !r.date.isBefore(weekStart) && !r.date.isAfter(weekEnd))
+      !r.date.isBefore(weekStart) && !r.date.isAfter(weekEnd))
           .fold<double>(0, (sum, r) => sum + r.kWh);
       points.add(BarChartPoint('${weekStart.day} ${_monthLabels[weekStart.month - 1]}', total));
     }
@@ -137,7 +137,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             const Text('Energy Reports', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
             Text(
               '${_monthLabels[now.month - 1]} ${now.year}',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+              style: AppFonts.display(fontSize: 23, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -166,7 +166,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         Expanded(
           child: _statCard(
             icon: Icons.bolt,
-            iconBg: AppColors.textPrimary,
+            iconBg: AppColors.pineDeep,
+            iconColor: AppColors.brass,
             label: "Today's Usage",
             value: '${today.toStringAsFixed(1)}',
             unit: 'kWh · \$${(today * 0.15).toStringAsFixed(2)} est.',
@@ -215,7 +216,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           const SizedBox(height: 10),
           Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+          Text(value, style: AppFonts.display(fontSize: 25, fontWeight: FontWeight.w600)),
           const SizedBox(height: 2),
           Text(unit, style: TextStyle(fontSize: 11, color: unitColor ?? AppColors.textSecondary, fontWeight: FontWeight.w600)),
         ],
@@ -288,7 +289,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final total = roomEntries.fold<double>(0, (sum, e) => sum + e.value);
     final slices = List.generate(
       roomEntries.length,
-      (i) => DonutSlice(roomEntries[i].key, roomEntries[i].value, _roomColors[i % _roomColors.length]),
+          (i) => DonutSlice(roomEntries[i].key, roomEntries[i].value, _roomColors[i % _roomColors.length]),
     );
 
     return Container(

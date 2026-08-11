@@ -29,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: StreamBuilder<QuerySnapshot>(
           stream: _service.streamFloors(),
@@ -98,10 +98,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: _selectedFloorId != null
           ? FloatingActionButton(
-              onPressed: () => _showAddDeviceDialog(context),
-              backgroundColor: AppColors.primaryActive,
-              child: const Icon(Icons.add, color: AppColors.textOnDark),
-            )
+        onPressed: () => _showAddDeviceDialog(context),
+        backgroundColor: AppColors.primaryActive,
+        child: const Icon(Icons.add, color: AppColors.textOnDark),
+      )
           : null,
     );
   }
@@ -120,11 +120,23 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primaryActive.withValues(alpha: 0.3),
-              border: Border.all(color: AppColors.primaryActive, width: 2),
+              gradient: RadialGradient(
+                colors: [
+                  AppColors.brass.withValues(alpha: 0.35),
+                  AppColors.brass.withValues(alpha: 0.18),
+                ],
+              ),
+              border: Border.all(color: AppColors.brass, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.brass.withValues(alpha: 0.30),
+                  blurRadius: 12,
+                  spreadRadius: -2,
+                ),
+              ],
             ),
             child: const Center(
-              child: Icon(Icons.person, color: AppColors.textPrimary, size: 26),
+              child: Icon(Icons.person, color: AppColors.pineDeep, size: 26),
             ),
           ),
           const SizedBox(width: 12),
@@ -140,13 +152,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                const Text(
+                Text(
                   'Alex',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
+                  style: AppFonts.display(fontSize: 21, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -239,20 +247,37 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.pineDeep, AppColors.pine],
+                ),
                 borderRadius: BorderRadius.circular(AppRadius.card),
-                border: Border.all(color: AppColors.divider),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.pineDeep.withValues(alpha: 0.35),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
                   Container(
                     width: 10,
                     height: 10,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primaryActive,
+                    decoration: BoxDecoration(
+                      color: AppColors.brass,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.brass.withValues(alpha: 0.7),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -261,23 +286,35 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                      color: AppColors.textOnDark,
                     ),
                   ),
                   const Spacer(),
-                  const Text(
-                    'Manage',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.settings_outlined,
-                    size: 16,
-                    color: AppColors.textSecondary,
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Manage',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.brass,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 14,
+                          color: AppColors.brass,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -356,7 +393,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const Spacer(),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(20),
@@ -394,7 +431,7 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.lightbulb_outline,
               label: 'All Lights',
               backgroundColor: AppColors.quickActionLights,
-              iconColor: const Color(0xFFF9A825),
+              iconColor: AppColors.brassDeep,
               onTap: () => _service.toggleAllDevicesByType('bulb', true),
             ),
           ),
@@ -414,7 +451,7 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.lock_outline,
               label: 'Lock House',
               backgroundColor: AppColors.quickActionLock,
-              iconColor: const Color(0xFF1565C0),
+              iconColor: AppColors.accentCamera,
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -539,7 +576,7 @@ class _HomeScreenState extends State<HomeScreen> {
               childAspectRatio: 0.92,
             ),
             delegate: SliverChildBuilderDelegate(
-              (context, index) {
+                  (context, index) {
                 final device = devices[index];
                 return DeviceCard(
                   device: device,

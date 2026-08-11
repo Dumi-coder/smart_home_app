@@ -19,9 +19,9 @@ class NotificationCard extends StatelessWidget {
       case AlertSeverity.critical:
         return AppColors.statusError;
       case AlertSeverity.warning:
-        return const Color(0xFFF9A825);
+        return AppColors.brassDeep;
       case AlertSeverity.info:
-        return const Color(0xFF42A5F5);
+        return AppColors.accentCamera;
     }
   }
 

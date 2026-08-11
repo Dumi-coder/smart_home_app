@@ -35,12 +35,12 @@ class FloorChip extends StatelessWidget {
               : Border.all(color: AppColors.divider, width: 1),
           boxShadow: isSelected
               ? [
-                  BoxShadow(
-                    color: AppColors.chipSelected.withValues(alpha: 0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
+            BoxShadow(
+              color: AppColors.brass.withValues(alpha: 0.25),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ]
               : null,
         ),
         child: Row(

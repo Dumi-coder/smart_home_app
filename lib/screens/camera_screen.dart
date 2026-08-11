@@ -58,7 +58,7 @@ class _CameraScreenState extends State<CameraScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: StreamBuilder<QuerySnapshot>(
           stream: _service.streamFloors(),
@@ -112,10 +112,10 @@ class _CameraScreenState extends State<CameraScreen>
                       )
                     else
                       ...cameras.map((cam) => _ThumbnailTile(
-                            camera: cam,
-                            isSelected: _selectedCamera?.id == cam.id,
-                            onTap: () => _selectCamera(cam),
-                          )),
+                        camera: cam,
+                        isSelected: _selectedCamera?.id == cam.id,
+                        onTap: () => _selectCamera(cam),
+                      )),
                   ],
                 );
               },

@@ -20,7 +20,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: StreamBuilder<List<NotificationAlert>>(
           stream: _service.streamNotificationAlerts(),
@@ -65,12 +65,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   )
                 else
                   ...filtered.map((alert) => NotificationCard(
-                        alert: alert,
-                        onDismiss: () => _service.dismissAlert(alert.id),
-                        onTap: () {
-                          if (!alert.acknowledged) _service.markAlertRead(alert.id);
-                        },
-                      )),
+                    alert: alert,
+                    onDismiss: () => _service.dismissAlert(alert.id),
+                    onTap: () {
+                      if (!alert.acknowledged) _service.markAlertRead(alert.id);
+                    },
+                  )),
               ],
             );
           },
@@ -89,7 +89,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             const Text('Alerts', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
             Row(
               children: [
-                const Text('Notifications', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                Text('Notifications', style: AppFonts.display(fontSize: 23, fontWeight: FontWeight.w600)),
                 if (unreadCount > 0) ...[
                   const SizedBox(width: 8),
                   Container(

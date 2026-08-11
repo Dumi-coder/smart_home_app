@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/device.dart';
 import '../services/firestore_service.dart';
+import '../theme/app_theme.dart';
 import '../widgets/multiswitch_tile.dart';
 
 class FloorDetailScreen extends StatelessWidget {
@@ -45,22 +46,12 @@ class FloorDetailScreen extends StatelessWidget {
     );
   }
 
-  Color _statusColor(DeviceStatus status) {
-    switch (status) {
-      case DeviceStatus.on:
-        return Colors.green;
-      case DeviceStatus.off:
-        return Colors.grey;
-      case DeviceStatus.error:
-        return Colors.red;
-      case DeviceStatus.disconnected:
-        return Colors.orange;
-    }
-  }
+  Color _statusColor(DeviceStatus status) => AppColors.colorForStatus(statusToString(status));
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(title: Text(floorName)),
       body: StreamBuilder<List<Device>>(
         stream: _service.streamDevices(floorId),
@@ -69,13 +60,21 @@ class FloorDetailScreen extends StatelessWidget {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(color: AppColors.brass),
+            );
           }
           final devices = snapshot.data!;
           if (devices.isEmpty) {
-            return const Center(child: Text('No devices yet. Tap + to add one.'));
+            return const Center(
+              child: Text(
+                'No devices yet. Tap + to add one.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            );
           }
           return ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: devices.length,
             itemBuilder: (context, index) {
               final device = devices[index];
@@ -84,19 +83,43 @@ class FloorDetailScreen extends StatelessWidget {
                 return MultiSwitchTile(device: device, service: _service);
               }
 
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppRadius.card),
+                  border: Border.all(color: AppColors.divider, width: 1),
+                  boxShadow: const [
+                    BoxShadow(color: AppColors.cardShadow, blurRadius: 8, offset: Offset(0, 3)),
+                  ],
+                ),
                 child: ListTile(
-                  leading: Icon(Icons.power, color: _statusColor(device.status)),
-                  title: Text(device.name),
-                  subtitle: Text('${device.type} • ${statusToString(device.status)}'),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.card),
+                  ),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _statusColor(device.status).withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.power, color: _statusColor(device.status), size: 18),
+                  ),
+                  title: Text(
+                    device.name,
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                  ),
+                  subtitle: Text(
+                    '${device.type} · ${statusToString(device.status)}',
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
+                  ),
                   trailing: (device is OutletDevice)
                       ? Switch(
-                    value: device.status == DeviceStatus.on,
-                    onChanged: (val) {
-                      _service.toggleDevice(floorId, device.id, val);
-                    },
-                  )
+                          value: device.status == DeviceStatus.on,
+                          onChanged: (val) {
+                            _service.toggleDevice(floorId, device.id, val);
+                          },
+                        )
                       : null,
                 ),
               );
@@ -106,6 +129,8 @@ class FloorDetailScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _addOutletDialog(context),
+        backgroundColor: AppColors.brass,
+        foregroundColor: AppColors.ink,
         child: const Icon(Icons.add),
       ),
     );

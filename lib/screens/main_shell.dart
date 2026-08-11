@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_background.dart';
 import 'home_screen.dart';
 import 'camera_screen.dart';
 import 'analysis_screen.dart';
@@ -30,9 +31,11 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: AppBackground(
+        child: IndexedStack(
+          index: _currentIndex,
+          children: _screens,
+        ),
       ),
       extendBody: true,
       bottomNavigationBar: _buildBottomNav(),
@@ -82,9 +85,9 @@ class _MainShellState extends State<MainShell> {
         ),
         decoration: isActive
             ? BoxDecoration(
-                color: AppColors.navBarActiveIcon.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-              )
+          color: AppColors.navBarActiveIcon.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+        )
             : null,
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -113,4 +116,3 @@ class _MainShellState extends State<MainShell> {
     );
   }
 }
-

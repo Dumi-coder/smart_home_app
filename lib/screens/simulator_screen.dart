@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/device.dart';
 import '../services/firestore_service.dart';
+import '../theme/app_theme.dart';
 
 class SimulatorScreen extends StatelessWidget {
   SimulatorScreen({super.key});
@@ -11,7 +12,7 @@ class SimulatorScreen extends StatelessWidget {
   Color _statusColor(DeviceStatus status) {
     switch (status) {
       case DeviceStatus.on:
-        return const Color(0xFFD4E157); // lime green, matches app theme
+        return AppColors.brass; // matches app theme signal color
       case DeviceStatus.off:
         return Colors.grey.shade400;
       case DeviceStatus.error:
@@ -42,7 +43,7 @@ class SimulatorScreen extends StatelessWidget {
     final color = _statusColor(device.status);
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF262626),
+        color: AppColors.pineDeep,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withValues(alpha: 0.8), width: 2),
         boxShadow: device.status == DeviceStatus.on

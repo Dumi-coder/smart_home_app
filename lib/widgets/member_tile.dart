@@ -12,7 +12,7 @@ class MemberTile extends StatelessWidget {
       case 'Owner':
         return AppColors.primaryActiveDark;
       case 'Admin':
-        return const Color(0xFF42A5F5);
+        return AppColors.accentCamera;
       default:
         return AppColors.textSecondary;
     }

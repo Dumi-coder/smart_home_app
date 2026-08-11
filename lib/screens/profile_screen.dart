@@ -20,7 +20,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 110),
@@ -60,10 +60,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 height: 56,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.primaryActive.withValues(alpha: 0.3),
-                  border: Border.all(color: AppColors.primaryActive, width: 2),
+                  gradient: RadialGradient(
+                    colors: [
+                      AppColors.brass.withValues(alpha: 0.35),
+                      AppColors.brass.withValues(alpha: 0.18),
+                    ],
+                  ),
+                  border: Border.all(color: AppColors.brass, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.brass.withValues(alpha: 0.30),
+                      blurRadius: 14,
+                      spreadRadius: -2,
+                    ),
+                  ],
                 ),
-                child: const Center(child: Icon(Icons.person, size: 30, color: AppColors.textPrimary)),
+                child: const Center(child: Icon(Icons.person, size: 30, color: AppColors.pineDeep)),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -124,7 +136,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _statColumn(String value, String label) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+        Text(value, style: AppFonts.display(fontSize: 21, fontWeight: FontWeight.w600)),
         Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
       ],
     );
@@ -293,9 +305,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Widget row(IconData icon, String label, {VoidCallback? onTap}) {
       return InkWell(
         onTap: onTap ??
-            () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Not wired up yet — placeholder action'), duration: Duration(seconds: 1)),
-                ),
+                () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Not wired up yet — placeholder action'), duration: Duration(seconds: 1)),
+            ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Row(
