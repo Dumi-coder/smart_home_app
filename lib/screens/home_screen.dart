@@ -9,8 +9,12 @@ import '../widgets/room_chip.dart';
 import '../widgets/quick_action_card.dart';
 import '../widgets/device_card.dart';
 import '../widgets/device_detail_sheet.dart';
+import '../widgets/multiswitch_tile.dart';
 import 'all_devices_screen.dart';
-
+import 'simulator_screen.dart';
+import 'floor_plan_screen.dart';
+import 'notifications_screen.dart';
+import '../theme/app_background.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -28,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: StreamBuilder<QuerySnapshot>(
           stream: _service.streamFloors(),
@@ -97,10 +101,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: _selectedFloorId != null
           ? FloatingActionButton(
-              onPressed: () => _showAddDeviceDialog(context),
-              backgroundColor: AppColors.primaryActive,
-              child: const Icon(Icons.add, color: AppColors.textOnDark),
-            )
+        onPressed: () => _showAddDeviceDialog(context),
+        backgroundColor: AppColors.primaryActive,
+        child: const Icon(Icons.add, color: AppColors.textOnDark),
+      )
           : null,
     );
   }
@@ -119,11 +123,23 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primaryActive.withValues(alpha: 0.3),
-              border: Border.all(color: AppColors.primaryActive, width: 2),
+              gradient: RadialGradient(
+                colors: [
+                  AppColors.brass.withValues(alpha: 0.35),
+                  AppColors.brass.withValues(alpha: 0.18),
+                ],
+              ),
+              border: Border.all(color: AppColors.brass, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.brass.withValues(alpha: 0.30),
+                  blurRadius: 12,
+                  spreadRadius: -2,
+                ),
+              ],
             ),
             child: const Center(
-              child: Icon(Icons.person, color: AppColors.textPrimary, size: 26),
+              child: Icon(Icons.person, color: AppColors.pineDeep, size: 26),
             ),
           ),
           const SizedBox(width: 12),
@@ -139,31 +155,32 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                const Text(
+                Text(
                   'Alex',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
+                  style: AppFonts.display(fontSize: 21, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
           ),
           // Action icons
-          _headerIcon(Icons.calendar_today_outlined),
-          const SizedBox(width: 8),
-          _headerIcon(Icons.smart_toy_outlined),
-          const SizedBox(width: 8),
           // Notification bell with badge
           StreamBuilder<int>(
             stream: _service.streamUnacknowledgedAlertCount(),
             builder: (context, alertSnap) {
               final count = alertSnap.data ?? 0;
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  _headerIcon(Icons.notifications_outlined),
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AppBackground(child: NotificationsScreen()),
+                    ),
+                  );
+                },
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    _headerIcon(Icons.notifications_outlined),
                   if (count > 0)
                     Positioned(
                       top: -2,
@@ -185,8 +202,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                 ],
+              ),
+            );
+          },
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => SimulatorScreen()),
               );
             },
+            child: _headerIcon(Icons.developer_board_outlined),
           ),
         ],
       ),
@@ -228,20 +256,37 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.pineDeep, AppColors.pine],
+                ),
                 borderRadius: BorderRadius.circular(AppRadius.card),
-                border: Border.all(color: AppColors.divider),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.pineDeep.withValues(alpha: 0.35),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
                   Container(
                     width: 10,
                     height: 10,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primaryActive,
+                    decoration: BoxDecoration(
+                      color: AppColors.brass,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.brass.withValues(alpha: 0.7),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -250,23 +295,35 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                      color: AppColors.textOnDark,
                     ),
                   ),
                   const Spacer(),
-                  const Text(
-                    'Manage',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.settings_outlined,
-                    size: 16,
-                    color: AppColors.textSecondary,
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Manage',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.brass,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 14,
+                          color: AppColors.brass,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -314,7 +371,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _selectedRoom = 'All';
                 });
               },
-              onLongPress: () => _showManageFloorDialog(context, doc.id, name),
+              onLongPress: () => _showManageFloorDialog(context, doc.id, data),
             );
           },
         ),
@@ -343,23 +400,32 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.divider),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.view_list_outlined,
-                        size: 16, color: AppColors.textSecondary),
-                    SizedBox(width: 8),
-                    Icon(Icons.grid_view_rounded,
-                        size: 16, color: AppColors.textPrimary),
-                  ],
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FloorPlanScreen(floorId: _selectedFloorId!),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.divider),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.map_outlined,
+                          size: 16, color: AppColors.textPrimary),
+                      SizedBox(width: 6),
+                      Text('Floor Plan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -383,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.lightbulb_outline,
               label: 'All Lights',
               backgroundColor: AppColors.quickActionLights,
-              iconColor: const Color(0xFFF9A825),
+              iconColor: AppColors.brassDeep,
               onTap: () => _service.toggleAllDevicesByType('bulb', true),
             ),
           ),
@@ -403,7 +469,7 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.lock_outline,
               label: 'Lock House',
               backgroundColor: AppColors.quickActionLock,
-              iconColor: const Color(0xFF1565C0),
+              iconColor: AppColors.accentCamera,
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -518,45 +584,68 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
-        return SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 14,
-              crossAxisSpacing: 14,
-              childAspectRatio: 0.92,
-            ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final device = devices[index];
-                return DeviceCard(
-                  device: device,
-                  onToggle: () {
-                    _service.toggleDevice(
-                      device.floorId,
-                      device.id,
-                      device.status != DeviceStatus.on,
+        final multiSwitches = devices.whereType<MultiSwitchDevice>().toList();
+        final otherDevices = devices.where((d) => d is! MultiSwitchDevice).toList();
+
+        return SliverMainAxisGroup(
+          slivers: [
+            // Multi-switch tiles rendered full-width above the grid
+            if (multiSwitches.isNotEmpty)
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final device = multiSwitches[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: MultiSwitchTile(device: device, service: _service),
                     );
                   },
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => DeviceDetailSheet(
+                  childCount: multiSwitches.length,
+                ),
+              ),
+            // Regular devices in a 2-column grid
+            if (otherDevices.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                    childAspectRatio: 0.92,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final device = otherDevices[index];
+                      return DeviceCard(
                         device: device,
-                        service: _service,
-                      ),
-                    );
-                  },
-                );
-              },
-              childCount: devices.length,
-            ),
-          ),
+                        onToggle: () => _service.toggleDevice(
+                          device.floorId,
+                          device.id,
+                          device.status != DeviceStatus.on,
+                        ),
+                        onTap: () => _showDeviceDetail(device),
+                      );
+                    },
+                    childCount: otherDevices.length,
+                  ),
+                ),
+              ),
+          ],
         );
       },
+    );
+  }
+
+  void _showDeviceDetail(Device device) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DeviceDetailSheet(
+        device: device,
+        service: _service,
+      ),
     );
   }
 
@@ -566,15 +655,51 @@ class _HomeScreenState extends State<HomeScreen> {
   // ═══════════════════════════════════════════════
   //  MANAGE DIALOGS
   // ═══════════════════════════════════════════════
-  void _showManageFloorDialog(BuildContext context, String? floorId, String? currentName) {
-    final controller = TextEditingController(text: currentName);
+  void _showManageFloorDialog(BuildContext context, String? floorId, Map<String, dynamic>? currentData) {
+    final nameController = TextEditingController(text: currentData?['name'] as String?);
+    final widthController = TextEditingController(text: currentData != null ? (currentData['gridWidth']?.toString() ?? '10') : '10');
+    final heightController = TextEditingController(text: currentData != null ? (currentData['gridHeight']?.toString() ?? '10') : '10');
+    final imageController = TextEditingController(text: currentData?['imageUrl'] as String?);
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(floorId == null ? 'Add Floor' : 'Edit Floor'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'Floor name (e.g. Ground Floor)'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(hintText: 'Floor name (e.g. Ground Floor)', labelText: 'Name'),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: widthController,
+                      decoration: const InputDecoration(hintText: '10', labelText: 'Grid Width'),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: heightController,
+                      decoration: const InputDecoration(hintText: '10', labelText: 'Grid Height'),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: imageController,
+                decoration: const InputDecoration(hintText: 'https://...', labelText: 'Floor Plan Image URL (optional)'),
+              ),
+            ],
+          ),
         ),
         actions: [
           if (floorId != null)
@@ -588,11 +713,26 @@ class _HomeScreenState extends State<HomeScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () async {
-              if (controller.text.trim().isNotEmpty) {
+              if (nameController.text.trim().isNotEmpty) {
+                final w = int.tryParse(widthController.text.trim()) ?? 10;
+                final h = int.tryParse(heightController.text.trim()) ?? 10;
+                final img = imageController.text.trim();
+                
                 if (floorId == null) {
-                  await _service.addFloor(name: controller.text.trim());
+                  await _service.addFloor(
+                    name: nameController.text.trim(),
+                    gridWidth: w,
+                    gridHeight: h,
+                    imageUrl: img,
+                  );
                 } else {
-                  await _service.updateFloor(floorId, controller.text.trim());
+                  await _service.updateFloor(
+                    floorId,
+                    nameController.text.trim(),
+                    gridWidth: w,
+                    gridHeight: h,
+                    imageUrl: img,
+                  );
                 }
               }
               if (ctx.mounted) Navigator.pop(ctx);
@@ -645,31 +785,174 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showAddDeviceDialog(BuildContext context) {
     final nameController = TextEditingController();
     String selectedType = 'outlet';
+    int numSwitches = 2; // For MULTI_SWITCH
+    // Each channel stores the ID of the device it controls (or null)
+    final List<String?> selectedDeviceIds = List.filled(5, null);
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setState) {
+          // Determine which room to filter devices by
+          final String? currentRoom = _selectedRoom == 'All' ? null : _selectedRoom;
+
           return AlertDialog(
             title: const Text('Add Device'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Device Name (e.g. Desk Lamp)'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Device Name (e.g. Kitchen Switch Panel)'),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedType,
+                      decoration: const InputDecoration(labelText: 'Device Type'),
+                      items: ['outlet', 'bulb', 'iron', 'MULTI_SWITCH', 'camera', 'fan', 'ac']
+                          .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => selectedType = val);
+                      },
+                    ),
+                    if (selectedType == 'MULTI_SWITCH') ...[
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<int>(
+                        value: numSwitches,
+                        decoration: const InputDecoration(labelText: 'Number of Channels'),
+                        items: [2, 3, 5]
+                            .map((n) => DropdownMenuItem(value: n, child: Text('$n Switches')))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) setState(() => numSwitches = val);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      // Fetch existing devices from this floor to populate channel dropdowns
+                      StreamBuilder<List<Device>>(
+                        stream: _service.streamDevices(_selectedFloorId!),
+                        builder: (context, devSnap) {
+                          if (!devSnap.hasData) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+
+                          // Filter to devices in this room (exclude other multi-switches)
+                          var roomDevices = devSnap.data!
+                              .where((d) => d.type != 'MULTI_SWITCH')
+                              .toList();
+                          if (currentRoom != null) {
+                            roomDevices = roomDevices
+                                .where((d) => d.room == currentRoom)
+                                .toList();
+                          }
+
+                          if (roomDevices.isEmpty) {
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: AppColors.background,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.divider),
+                              ),
+                              child: Text(
+                                currentRoom != null
+                                    ? 'No devices found in "$currentRoom".\nAdd devices to this room first.'
+                                    : 'No devices on this floor yet.\nAdd devices first, then create a switch panel.',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            );
+                          }
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0),
+                                child: Text(
+                                  currentRoom != null
+                                      ? 'Assign devices from "$currentRoom":'
+                                      : 'Assign devices from this floor:',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              for (int i = 0; i < numSwitches; i++)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10.0),
+                                  child: DropdownButtonFormField<String>(
+                                    value: selectedDeviceIds[i],
+                                    decoration: InputDecoration(
+                                      labelText: 'Channel ${i + 1}',
+                                      prefixIcon: Icon(
+                                        Icons.electrical_services,
+                                        size: 18,
+                                        color: selectedDeviceIds[i] != null
+                                            ? AppColors.primaryActiveDark
+                                            : AppColors.textSecondary,
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    ),
+                                    isExpanded: true,
+                                    items: [
+                                      const DropdownMenuItem<String>(
+                                        value: null,
+                                        child: Text('— Not assigned —',
+                                            style: TextStyle(color: AppColors.textSecondary)),
+                                      ),
+                                      ...roomDevices.map((d) => DropdownMenuItem<String>(
+                                        value: d.id,
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              _iconForType(d.type),
+                                              size: 16,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                d.name,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            Text(
+                                              d.type.toUpperCase(),
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )),
+                                    ],
+                                    onChanged: (val) {
+                                      setState(() => selectedDeviceIds[i] = val);
+                                    },
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedType,
-                  decoration: const InputDecoration(labelText: 'Device Type'),
-                  items: ['outlet', 'bulb', 'iron', 'multiswitch', 'camera']
-                      .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
-                      .toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => selectedType = val);
-                  },
-                ),
-              ],
+              ),
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
@@ -677,23 +960,41 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () async {
                   if (nameController.text.trim().isNotEmpty) {
                     String? assignedRoom = _selectedRoom == 'All' ? null : _selectedRoom;
-                    final map = {
-                      'name': nameController.text.trim(),
-                      'type': selectedType,
-                      'x': 0,
-                      'y': 0,
-                      'status': 'OFF',
-                      if (assignedRoom != null) 'room': assignedRoom,
-                    };
-                    if (selectedType == 'iron') {
-                      map['maxOnDurationMinutes'] = 15;
-                    } else if (selectedType == 'multiswitch') {
-                      map['switches'] = [
-                        {'id': 'sw1', 'label': 'Switch 1', 'state': false}
-                      ];
+                    
+                    if (selectedType == 'MULTI_SWITCH') {
+                      final device = MultiSwitchDevice(
+                        id: '', // Will be generated
+                        floorId: _selectedFloorId!,
+                        name: nameController.text.trim(),
+                        x: 0,
+                        y: 0,
+                        status: DeviceStatus.off,
+                        room: assignedRoom,
+                      );
+                      
+                      // Build switch names from the selected device names
+                      final channelIds = selectedDeviceIds.take(numSwitches).toList();
+                      
+                      await _service.addMultiSwitchWithDevices(
+                        _selectedFloorId!,
+                        device,
+                        numSwitches,
+                        channelIds,
+                      );
+                    } else {
+                      final map = {
+                        'name': nameController.text.trim(),
+                        'type': selectedType,
+                        'x': 0,
+                        'y': 0,
+                        'status': 'OFF',
+                        if (assignedRoom != null) 'room': assignedRoom,
+                      };
+                      if (selectedType == 'iron') {
+                        map['maxOnDurationMinutes'] = 15;
+                      }
+                      await _service.addDeviceRaw(_selectedFloorId!, map);
                     }
-
-                    await _service.addDeviceRaw(_selectedFloorId!, map);
                     if (ctx.mounted) Navigator.pop(ctx);
                   }
                 },
@@ -704,6 +1005,18 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ),
     );
+  }
+
+  IconData _iconForType(String type) {
+    switch (type) {
+      case 'bulb': return Icons.lightbulb_outline;
+      case 'outlet': return Icons.power_outlined;
+      case 'iron': return Icons.iron_outlined;
+      case 'camera': return Icons.videocam_outlined;
+      case 'fan': return Icons.air;
+      case 'ac': return Icons.ac_unit;
+      default: return Icons.devices_other;
+    }
   }
 
   String _getGreeting() {

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_background.dart';
 import 'home_screen.dart';
+import 'camera_screen.dart';
+import 'analysis_screen.dart';
+import 'notifications_screen.dart';
+import 'profile_screen.dart';
 
 /// Main app shell with floating pill-shaped bottom navigation bar.
-/// Holds 5 tabs: Home, Devices, Analytics, Notifications, Profile.
-/// Placeholder screens are used for tabs not yet implemented.
+/// Holds 5 tabs: Home, Cameras, Analytics, Notifications, Profile.
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -15,21 +19,23 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    _PlaceholderScreen(title: 'Cameras', icon: Icons.videocam_outlined),
-    _PlaceholderScreen(title: 'Energy Analysis', icon: Icons.bar_chart),
-    _PlaceholderScreen(title: 'Notifications', icon: Icons.notifications_outlined),
-    _PlaceholderScreen(title: 'Profile', icon: Icons.person_outline),
+  final List<Widget> _screens = const [
+    HomeScreen(),
+    CameraScreen(),
+    AnalysisScreen(),
+    NotificationsScreen(),
+    ProfileScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: AppBackground(
+        child: IndexedStack(
+          index: _currentIndex,
+          children: _screens,
+        ),
       ),
       extendBody: true,
       bottomNavigationBar: _buildBottomNav(),
@@ -79,9 +85,9 @@ class _MainShellState extends State<MainShell> {
         ),
         decoration: isActive
             ? BoxDecoration(
-                color: AppColors.navBarActiveIcon.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-              )
+          color: AppColors.navBarActiveIcon.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+        )
             : null,
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -104,46 +110,6 @@ class _MainShellState extends State<MainShell> {
                 ),
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Placeholder screen for tabs not yet implemented.
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const _PlaceholderScreen({required this.title, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 64, color: AppColors.textSecondary),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Coming soon',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-              ),
-            ),
           ],
         ),
       ),

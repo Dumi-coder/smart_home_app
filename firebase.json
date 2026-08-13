@@ -1,1 +1,58 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"smarthome-3508e","appId":"1:143923826533:android:796fa145db4274777f9b8c","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"smarthome-3508e","configurations":{"android":"1:143923826533:android:796fa145db4274777f9b8c","web":"1:143923826533:web:50cabf8670f7f6147f9b8c"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "smarthome-3508e",
+          "appId": "1:143923826533:android:796fa145db4274777f9b8c",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "smarthome-3508e",
+          "configurations": {
+            "android": "1:143923826533:android:796fa145db4274777f9b8c",
+            "web": "1:143923826533:web:50cabf8670f7f6147f9b8c"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "disallowLegacyRuntimeConfig": true,
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ],
+  "emulators": {
+    "functions": {
+      "port": 5001
+    },
+    "ui": {
+      "enabled": true
+    },
+    "singleProjectMode": true,
+    "firestore": {
+      "port": 8081
+    },
+    "pubsub": {
+      "port": 8085
+    }
+  }
+}

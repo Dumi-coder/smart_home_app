@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/device.dart';
+import '../models/notification_alert.dart';
+import '../models/house_member.dart';
+import '../models/energy_reading.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -27,8 +30,16 @@ class FirestoreService {
     });
   }
 
-  Future<void> updateFloor(String floorId, String newName) async {
-    await _db.collection('floors').doc(floorId).update({'name': newName});
+  Future<void> updateFloor(String floorId, String newName, {
+    int? gridWidth,
+    int? gridHeight,
+    String? imageUrl,
+  }) async {
+    final updates = <String, dynamic>{'name': newName};
+    if (gridWidth != null) updates['gridWidth'] = gridWidth;
+    if (gridHeight != null) updates['gridHeight'] = gridHeight;
+    if (imageUrl != null) updates['imageUrl'] = imageUrl;
+    await _db.collection('floors').doc(floorId).update(updates);
   }
 
   Future<void> deleteFloor(String floorId) async {
@@ -142,22 +153,198 @@ class FirestoreService {
     });
   }
 
-  /// Toggle a single switch within a multi-switch unit.
-  Future<void> toggleSubSwitch(String floorId, String deviceId,
-      List<SwitchItem> switches, String switchId, bool newState) async {
-    final updatedSwitches = switches.map((s) {
-      if (s.id == switchId) {
-        return SwitchItem(id: s.id, label: s.label, state: newState);
-      }
-      return s;
-    }).toList();
-
-    await _db
+  Stream<List<ChildSwitch>> streamChildSwitches(String floorId, String deviceId) {
+    return _db
         .collection('floors')
         .doc(floorId)
         .collection('devices')
         .doc(deviceId)
-        .update({'switches': updatedSwitches.map((s) => s.toMap()).toList()});
+        .collection('switches')
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => ChildSwitch.fromFirestore(doc))
+            .toList());
+  }
+
+  /// Toggle a single switch within a multi-switch unit.
+  Future<void> toggleSubSwitch(
+      String floorId, String deviceId, String switchId, bool turnOn) async {
+    final ref = _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .collection('switches')
+        .doc(switchId);
+
+    await ref.update({
+      'status': turnOn ? 'ON' : 'OFF',
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+
+    // Log usage event for the specific switch.
+    await _db.collection('usageLogs').add({
+      'deviceId': switchId, // specific switch ID
+      'floorId': floorId,
+      'event': turnOn ? 'ON' : 'OFF',
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+    
+    // We should also recalculate parent status if possible, 
+    // but the instruction says "For a multi-switch panel, calculate the parent status logically from its child switches where appropriate."
+    // Let's do a quick recalculation of parent status.
+    final switchesSnap = await _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .collection('switches')
+        .get();
+        
+    int onCount = 0;
+    int total = switchesSnap.docs.length;
+    for (var doc in switchesSnap.docs) {
+      if (doc.data()['status'] == 'ON') onCount++;
+    }
+    
+    String parentStatus = 'OFF';
+    if (onCount > 0 && onCount < total) {
+      parentStatus = 'ON'; // Or we could use a custom status, but we must preserve ON/OFF.
+    } else if (onCount == total && total > 0) {
+      parentStatus = 'ON';
+    }
+    
+    await updateDeviceStatus(floorId, deviceId, statusFromString(parentStatus));
+  }
+
+  /// Update an arbitrary status for a child switch (e.g. for ERROR/DISCONNECTED simulation).
+  Future<void> updateChildSwitchStatus(
+      String floorId, String deviceId, String switchId, String status) async {
+    final ref = _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .collection('switches')
+        .doc(switchId);
+
+    await ref.update({
+      'status': status,
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+
+    // Recalculate parent status
+    final switchesSnap = await _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .collection('switches')
+        .get();
+        
+    int onCount = 0;
+    int errorCount = 0;
+    int disconnectedCount = 0;
+    int total = switchesSnap.docs.length;
+    
+    for (var doc in switchesSnap.docs) {
+      final s = doc.data()['status'];
+      if (s == 'ON') onCount++;
+      if (s == 'ERROR') errorCount++;
+      if (s == 'DISCONNECTED') disconnectedCount++;
+    }
+    
+    String parentStatus = 'OFF';
+    if (errorCount > 0) {
+      parentStatus = 'ERROR';
+    } else if (disconnectedCount == total && total > 0) {
+      parentStatus = 'DISCONNECTED';
+    } else if (onCount > 0) {
+      parentStatus = 'ON';
+    }
+    
+    await updateDeviceStatus(floorId, deviceId, statusFromString(parentStatus));
+  }
+
+  /// Create a MULTI_SWITCH with a set of child switches.
+  Future<void> addMultiSwitch(
+    String floorId, 
+    Device device, 
+    int numSwitches, 
+    List<String> switchNames
+  ) async {
+    final devRef = await _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .add(device.toMap());
+        
+    final switchesRef = devRef.collection('switches');
+    final batch = _db.batch();
+    
+    for (int i = 0; i < numSwitches; i++) {
+      final docRef = switchesRef.doc();
+      batch.set(docRef, {
+        'device_id': devRef.id,
+        'switch_number': i + 1,
+        'name': i < switchNames.length ? switchNames[i] : 'Switch ${i + 1}',
+        'status': 'OFF',
+        'enabled': true,
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
+  /// Create a MULTI_SWITCH and link each channel to an existing device by ID.
+  /// [channelDeviceIds] maps channel index → device ID (nullable if unassigned).
+  Future<void> addMultiSwitchWithDevices(
+    String floorId,
+    Device device,
+    int numSwitches,
+    List<String?> channelDeviceIds,
+  ) async {
+    // First, look up the names of the selected devices
+    final devicesCol = _db.collection('floors').doc(floorId).collection('devices');
+
+    // Create the parent multi-switch document
+    final devRef = await devicesCol.add(device.toMap());
+
+    final switchesRef = devRef.collection('switches');
+    final batch = _db.batch();
+
+    for (int i = 0; i < numSwitches; i++) {
+      final deviceId = i < channelDeviceIds.length ? channelDeviceIds[i] : null;
+      String channelName = 'Switch ${i + 1}';
+      String? connectedDeviceId;
+      String? connectedDeviceName;
+
+      // If a device was assigned, look up its name
+      if (deviceId != null) {
+        final deviceDoc = await devicesCol.doc(deviceId).get();
+        if (deviceDoc.exists) {
+          final data = deviceDoc.data() as Map<String, dynamic>;
+          channelName = data['name'] ?? 'Switch ${i + 1}';
+          connectedDeviceId = deviceId;
+          connectedDeviceName = channelName;
+        }
+      }
+
+      final docRef = switchesRef.doc();
+      batch.set(docRef, {
+        'device_id': devRef.id,
+        'switch_number': i + 1,
+        'name': channelName,
+        'status': 'OFF',
+        'enabled': true,
+        if (connectedDeviceId != null) 'connected_device_id': connectedDeviceId,
+        if (connectedDeviceName != null) 'connected_device_name': connectedDeviceName,
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
   }
 
   // ---------------- Usage logs / reporting ----------------
@@ -286,5 +473,171 @@ class FirestoreService {
       }
     }
     await batch.commit();
+  }
+
+  // ────────────────────────────────────────────────
+  //  NOTIFICATIONS / ALERTS
+  // ────────────────────────────────────────────────
+
+  /// Typed stream of every alert, newest first.
+  Stream<List<NotificationAlert>> streamNotificationAlerts() {
+    return _db
+        .collection('alerts')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => NotificationAlert.fromFirestore(d)).toList());
+  }
+
+  Future<void> markAlertRead(String alertId) async {
+    await _db.collection('alerts').doc(alertId).update({'acknowledged': true});
+  }
+
+  Future<void> markAllAlertsRead() async {
+    final snap =
+        await _db.collection('alerts').where('acknowledged', isEqualTo: false).get();
+    final batch = _db.batch();
+    for (final doc in snap.docs) {
+      batch.update(doc.reference, {'acknowledged': true});
+    }
+    await batch.commit();
+  }
+
+  Future<void> dismissAlert(String alertId) async {
+    await _db.collection('alerts').doc(alertId).delete();
+  }
+
+  Future<void> addAlert({
+    required String title,
+    required String message,
+    required AlertSeverity severity,
+    String? room,
+    String? deviceId,
+    String icon = 'info',
+  }) async {
+    await _db.collection('alerts').add({
+      'title': title,
+      'message': message,
+      'severity': severityToString(severity),
+      if (room != null) 'room': room,
+      if (deviceId != null) 'deviceId': deviceId,
+      'icon': icon,
+      'timestamp': FieldValue.serverTimestamp(),
+      'acknowledged': false,
+    });
+  }
+
+  // ────────────────────────────────────────────────
+  //  ENERGY USAGE / ANALYSIS
+  // ────────────────────────────────────────────────
+
+  /// Stream of every energy reading, used by the Analysis screen to compute
+  /// today/week/month totals, room breakdowns and top consumers client-side.
+  Stream<List<EnergyReading>> streamEnergyUsage() {
+    return _db
+        .collection('energyUsage')
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => EnergyReading.fromFirestore(d)).toList());
+  }
+
+  Future<void> addEnergyReading(EnergyReading reading) async {
+    await _db.collection('energyUsage').add(reading.toMap());
+  }
+
+  // ────────────────────────────────────────────────
+  //  HOUSE MEMBERS / PROFILE
+  // ────────────────────────────────────────────────
+
+  Stream<List<HouseMember>> streamHouseMembers() {
+    return _db.collection('houseMembers').snapshots().map(
+        (snap) => snap.docs.map((d) => HouseMember.fromFirestore(d)).toList());
+  }
+
+  Future<void> addHouseMember(HouseMember member) async {
+    await _db.collection('houseMembers').add(member.toMap());
+  }
+
+  /// Count of saved scenes, shown as a stat on the Profile screen.
+  Stream<int> streamSceneCount() {
+    return _db.collection('scenes').snapshots().map((s) => s.docs.length);
+  }
+
+  /// Count of distinct rooms across every floor, shown as a stat on the
+  /// Profile screen.
+  Future<int> countDistinctRooms() async {
+    final floorsSnap = await _db.collection('floors').get();
+    int total = 0;
+    for (final floor in floorsSnap.docs) {
+      final roomsSnap =
+          await _db.collection('floors').doc(floor.id).collection('rooms').get();
+      total += roomsSnap.docs.length;
+    }
+    return total;
+  }
+
+  /// Single user preferences document (dark mode / push notifications /
+  /// Firebase sync toggles) shown on the Profile screen.
+  DocumentReference get preferencesDoc =>
+      _db.collection('settings').doc('preferences');
+
+  Stream<DocumentSnapshot> streamPreferences() => preferencesDoc.snapshots();
+
+  Future<void> setPreference(String key, bool value) async {
+    await preferencesDoc.set({key: value}, SetOptions(merge: true));
+  }
+
+  // ────────────────────────────────────────────────
+  //  CAMERAS
+  // ────────────────────────────────────────────────
+
+  /// Cameras grouped under a pseudo-floor id, e.g. "exterior" for outdoor
+  /// cameras that aren't tied to any real floor document.
+  Stream<List<Device>> streamCamerasForGroup(String floorId) {
+    return _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .where('type', isEqualTo: 'camera')
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => Device.fromFirestore(floorId, d)).toList());
+  }
+
+  // ────────────────────────────────────────────────
+  //  DEVICE SCHEDULING
+  // ────────────────────────────────────────────────
+
+  /// Sets (or replaces) a daily schedule for a bulb/device.
+  /// [scheduleStart] and [scheduleEnd] must be 24-hour strings, e.g. "18:15".
+  Future<void> updateDeviceSchedule(
+    String floorId,
+    String deviceId,
+    String scheduleStart,
+    String scheduleEnd,
+  ) async {
+    await _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .update({
+      'scheduleStart': scheduleStart,
+      'scheduleEnd': scheduleEnd,
+    });
+  }
+
+  /// Removes the schedule fields from a device document entirely.
+  Future<void> clearDeviceSchedule(String floorId, String deviceId) async {
+    await _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .update({
+      'scheduleStart': FieldValue.delete(),
+      'scheduleEnd': FieldValue.delete(),
+    });
   }
 }

@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to restrict access
+    function isAllowedCollection() {
+      return true; // We enforce it on match blocks instead for better security
+    }
+
+    // Default deny for all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Allowed collections for this mini-project (no auth required per specs)
+    match /floors/{floorId} {
+      allow read, write: if true;
+      
+      // Subcollections under floors
+      match /devices/{deviceId} {
+        allow read, write: if true;
+        
+        match /switches/{switchId} {
+          allow read, write: if true;
+        }
+      }
+      match /rooms/{roomId} {
+        allow read, write: if true;
+      }
+    }
+
+    match /usageLogs/{logId} {
+      allow read, write: if true;
+    }
+
+    match /alerts/{alertId} {
+      allow read, write: if true;
+    }
+
+    match /energyUsage/{usageId} {
+      allow read, write: if true;
+    }
+
+    match /houseMembers/{memberId} {
+      allow read, write: if true;
+    }
+
+    match /scenes/{sceneId} {
+      allow read, write: if true;
+    }
+
+    match /settings/preferences {
+      allow read, write: if true;
+    }
+  }
+}
