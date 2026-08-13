@@ -605,6 +605,22 @@ class FirestoreService {
             snap.docs.map((d) => Device.fromFirestore(floorId, d)).toList());
   }
 
+  /// Returns a stream of the floor's imageUrl field.
+  /// Returns null if the floor document doesn't exist or has no imageUrl.
+  Stream<String?> streamFloorImageUrl(String floorId) {
+    return _db
+        .collection('floors')
+        .doc(floorId)
+        .snapshots()
+        .map((doc) {
+      if (!doc.exists) return null;
+      final data = doc.data();
+      if (data == null) return null;
+      final url = data['imageUrl'] as String?;
+      return (url != null && url.isNotEmpty) ? url : null;
+    });
+  }
+
   // ────────────────────────────────────────────────
   //  DEVICE SCHEDULING
   // ────────────────────────────────────────────────
