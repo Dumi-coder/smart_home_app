@@ -82,22 +82,44 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget _buildHeader(int unreadCount) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
+        Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Alerts', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-            Row(
-              children: [
-                Text('Notifications', style: AppFonts.display(fontSize: 23, fontWeight: FontWeight.w600)),
-                if (unreadCount > 0) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: AppColors.statusError, borderRadius: BorderRadius.circular(10)),
-                    child: Text('$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+            if (Navigator.canPop(context))
+              Padding(
+                padding: const EdgeInsets.only(right: 12.0, top: 4),
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: const Icon(Icons.arrow_back, size: 20, color: AppColors.textPrimary),
                   ),
-                ],
+                ),
+              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Alerts', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                Row(
+                  children: [
+                    Text('Notifications', style: AppFonts.display(fontSize: 23, fontWeight: FontWeight.w600)),
+                    if (unreadCount > 0) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: AppColors.statusError, borderRadius: BorderRadius.circular(10)),
+                        child: Text('$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ],

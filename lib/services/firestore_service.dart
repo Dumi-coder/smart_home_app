@@ -153,22 +153,198 @@ class FirestoreService {
     });
   }
 
-  /// Toggle a single switch within a multi-switch unit.
-  Future<void> toggleSubSwitch(String floorId, String deviceId,
-      List<SwitchItem> switches, String switchId, bool newState) async {
-    final updatedSwitches = switches.map((s) {
-      if (s.id == switchId) {
-        return SwitchItem(id: s.id, label: s.label, state: newState);
-      }
-      return s;
-    }).toList();
-
-    await _db
+  Stream<List<ChildSwitch>> streamChildSwitches(String floorId, String deviceId) {
+    return _db
         .collection('floors')
         .doc(floorId)
         .collection('devices')
         .doc(deviceId)
-        .update({'switches': updatedSwitches.map((s) => s.toMap()).toList()});
+        .collection('switches')
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => ChildSwitch.fromFirestore(doc))
+            .toList());
+  }
+
+  /// Toggle a single switch within a multi-switch unit.
+  Future<void> toggleSubSwitch(
+      String floorId, String deviceId, String switchId, bool turnOn) async {
+    final ref = _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .collection('switches')
+        .doc(switchId);
+
+    await ref.update({
+      'status': turnOn ? 'ON' : 'OFF',
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+
+    // Log usage event for the specific switch.
+    await _db.collection('usageLogs').add({
+      'deviceId': switchId, // specific switch ID
+      'floorId': floorId,
+      'event': turnOn ? 'ON' : 'OFF',
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+    
+    // We should also recalculate parent status if possible, 
+    // but the instruction says "For a multi-switch panel, calculate the parent status logically from its child switches where appropriate."
+    // Let's do a quick recalculation of parent status.
+    final switchesSnap = await _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .collection('switches')
+        .get();
+        
+    int onCount = 0;
+    int total = switchesSnap.docs.length;
+    for (var doc in switchesSnap.docs) {
+      if (doc.data()['status'] == 'ON') onCount++;
+    }
+    
+    String parentStatus = 'OFF';
+    if (onCount > 0 && onCount < total) {
+      parentStatus = 'ON'; // Or we could use a custom status, but we must preserve ON/OFF.
+    } else if (onCount == total && total > 0) {
+      parentStatus = 'ON';
+    }
+    
+    await updateDeviceStatus(floorId, deviceId, statusFromString(parentStatus));
+  }
+
+  /// Update an arbitrary status for a child switch (e.g. for ERROR/DISCONNECTED simulation).
+  Future<void> updateChildSwitchStatus(
+      String floorId, String deviceId, String switchId, String status) async {
+    final ref = _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .collection('switches')
+        .doc(switchId);
+
+    await ref.update({
+      'status': status,
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+
+    // Recalculate parent status
+    final switchesSnap = await _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .collection('switches')
+        .get();
+        
+    int onCount = 0;
+    int errorCount = 0;
+    int disconnectedCount = 0;
+    int total = switchesSnap.docs.length;
+    
+    for (var doc in switchesSnap.docs) {
+      final s = doc.data()['status'];
+      if (s == 'ON') onCount++;
+      if (s == 'ERROR') errorCount++;
+      if (s == 'DISCONNECTED') disconnectedCount++;
+    }
+    
+    String parentStatus = 'OFF';
+    if (errorCount > 0) {
+      parentStatus = 'ERROR';
+    } else if (disconnectedCount == total && total > 0) {
+      parentStatus = 'DISCONNECTED';
+    } else if (onCount > 0) {
+      parentStatus = 'ON';
+    }
+    
+    await updateDeviceStatus(floorId, deviceId, statusFromString(parentStatus));
+  }
+
+  /// Create a MULTI_SWITCH with a set of child switches.
+  Future<void> addMultiSwitch(
+    String floorId, 
+    Device device, 
+    int numSwitches, 
+    List<String> switchNames
+  ) async {
+    final devRef = await _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .add(device.toMap());
+        
+    final switchesRef = devRef.collection('switches');
+    final batch = _db.batch();
+    
+    for (int i = 0; i < numSwitches; i++) {
+      final docRef = switchesRef.doc();
+      batch.set(docRef, {
+        'device_id': devRef.id,
+        'switch_number': i + 1,
+        'name': i < switchNames.length ? switchNames[i] : 'Switch ${i + 1}',
+        'status': 'OFF',
+        'enabled': true,
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
+  /// Create a MULTI_SWITCH and link each channel to an existing device by ID.
+  /// [channelDeviceIds] maps channel index → device ID (nullable if unassigned).
+  Future<void> addMultiSwitchWithDevices(
+    String floorId,
+    Device device,
+    int numSwitches,
+    List<String?> channelDeviceIds,
+  ) async {
+    // First, look up the names of the selected devices
+    final devicesCol = _db.collection('floors').doc(floorId).collection('devices');
+
+    // Create the parent multi-switch document
+    final devRef = await devicesCol.add(device.toMap());
+
+    final switchesRef = devRef.collection('switches');
+    final batch = _db.batch();
+
+    for (int i = 0; i < numSwitches; i++) {
+      final deviceId = i < channelDeviceIds.length ? channelDeviceIds[i] : null;
+      String channelName = 'Switch ${i + 1}';
+      String? connectedDeviceId;
+      String? connectedDeviceName;
+
+      // If a device was assigned, look up its name
+      if (deviceId != null) {
+        final deviceDoc = await devicesCol.doc(deviceId).get();
+        if (deviceDoc.exists) {
+          final data = deviceDoc.data() as Map<String, dynamic>;
+          channelName = data['name'] ?? 'Switch ${i + 1}';
+          connectedDeviceId = deviceId;
+          connectedDeviceName = channelName;
+        }
+      }
+
+      final docRef = switchesRef.doc();
+      batch.set(docRef, {
+        'device_id': devRef.id,
+        'switch_number': i + 1,
+        'name': channelName,
+        'status': 'OFF',
+        'enabled': true,
+        if (connectedDeviceId != null) 'connected_device_id': connectedDeviceId,
+        if (connectedDeviceName != null) 'connected_device_name': connectedDeviceName,
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
   }
 
   // ---------------- Usage logs / reporting ----------------

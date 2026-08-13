@@ -16,7 +16,10 @@ class DeviceIcons {
       case 'iron':
         return Icons.iron_outlined;
       case 'camera':
-        return Icons.videocam_outlined;
+      case 'fan':
+        return Icons.air;
+      case 'ac':
+        return Icons.ac_unit;
       default:
         return Icons.devices_other;
     }
@@ -28,12 +31,15 @@ class DeviceIcons {
         return AppColors.accentBulb;
       case 'outlet':
         return AppColors.accentOutlet;
-      case 'multiswitch':
+      case 'MULTI_SWITCH':
         return AppColors.accentMultiswitch;
       case 'iron':
         return AppColors.accentIron;
       case 'camera':
-        return AppColors.accentCamera;
+      case 'fan':
+        return AppColors.accentBulb; // Reusing an accent for now
+      case 'ac':
+        return AppColors.primaryActive; // Reusing an accent for now
       default:
         return AppColors.statusOff;
     }
@@ -51,7 +57,10 @@ class DeviceIcons {
       case 'iron':
         return 'Iron';
       case 'camera':
-        return 'Camera';
+      case 'fan':
+        return 'Fan';
+      case 'ac':
+        return 'AC';
       default:
         return 'Device';
     }
@@ -72,10 +81,8 @@ class DeviceIcons {
       }
     }
     if (typeName == 'MultiSwitchDevice') {
-      final onCount =
-          (device.switches as List).where((s) => s.state == true).length;
-      final total = (device.switches as List).length;
-      return '$onCount/$total on';
+      // Sub-status is handled within the MultiSwitchTile itself
+      return null;
     }
     return null;
   }
