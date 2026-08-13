@@ -11,7 +11,7 @@ import '../widgets/device_card.dart';
 import '../widgets/device_detail_sheet.dart';
 import 'all_devices_screen.dart';
 import 'simulator_screen.dart';
-
+import 'floor_plan_screen.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -362,7 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _selectedRoom = 'All';
                 });
               },
-              onLongPress: () => _showManageFloorDialog(context, doc.id, name),
+              onLongPress: () => _showManageFloorDialog(context, doc.id, data),
             );
           },
         ),
@@ -391,23 +391,32 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Spacer(),
-              Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.divider),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.view_list_outlined,
-                        size: 16, color: AppColors.textSecondary),
-                    SizedBox(width: 8),
-                    Icon(Icons.grid_view_rounded,
-                        size: 16, color: AppColors.textPrimary),
-                  ],
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FloorPlanScreen(floorId: _selectedFloorId!),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.divider),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.map_outlined,
+                          size: 16, color: AppColors.textPrimary),
+                      SizedBox(width: 6),
+                      Text('Floor Plan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -614,15 +623,51 @@ class _HomeScreenState extends State<HomeScreen> {
   // ═══════════════════════════════════════════════
   //  MANAGE DIALOGS
   // ═══════════════════════════════════════════════
-  void _showManageFloorDialog(BuildContext context, String? floorId, String? currentName) {
-    final controller = TextEditingController(text: currentName);
+  void _showManageFloorDialog(BuildContext context, String? floorId, Map<String, dynamic>? currentData) {
+    final nameController = TextEditingController(text: currentData?['name'] as String?);
+    final widthController = TextEditingController(text: currentData != null ? (currentData['gridWidth']?.toString() ?? '10') : '10');
+    final heightController = TextEditingController(text: currentData != null ? (currentData['gridHeight']?.toString() ?? '10') : '10');
+    final imageController = TextEditingController(text: currentData?['imageUrl'] as String?);
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(floorId == null ? 'Add Floor' : 'Edit Floor'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'Floor name (e.g. Ground Floor)'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(hintText: 'Floor name (e.g. Ground Floor)', labelText: 'Name'),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: widthController,
+                      decoration: const InputDecoration(hintText: '10', labelText: 'Grid Width'),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: heightController,
+                      decoration: const InputDecoration(hintText: '10', labelText: 'Grid Height'),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: imageController,
+                decoration: const InputDecoration(hintText: 'https://...', labelText: 'Floor Plan Image URL (optional)'),
+              ),
+            ],
+          ),
         ),
         actions: [
           if (floorId != null)
@@ -636,11 +681,26 @@ class _HomeScreenState extends State<HomeScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () async {
-              if (controller.text.trim().isNotEmpty) {
+              if (nameController.text.trim().isNotEmpty) {
+                final w = int.tryParse(widthController.text.trim()) ?? 10;
+                final h = int.tryParse(heightController.text.trim()) ?? 10;
+                final img = imageController.text.trim();
+                
                 if (floorId == null) {
-                  await _service.addFloor(name: controller.text.trim());
+                  await _service.addFloor(
+                    name: nameController.text.trim(),
+                    gridWidth: w,
+                    gridHeight: h,
+                    imageUrl: img,
+                  );
                 } else {
-                  await _service.updateFloor(floorId, controller.text.trim());
+                  await _service.updateFloor(
+                    floorId,
+                    nameController.text.trim(),
+                    gridWidth: w,
+                    gridHeight: h,
+                    imageUrl: img,
+                  );
                 }
               }
               if (ctx.mounted) Navigator.pop(ctx);

@@ -30,8 +30,16 @@ class FirestoreService {
     });
   }
 
-  Future<void> updateFloor(String floorId, String newName) async {
-    await _db.collection('floors').doc(floorId).update({'name': newName});
+  Future<void> updateFloor(String floorId, String newName, {
+    int? gridWidth,
+    int? gridHeight,
+    String? imageUrl,
+  }) async {
+    final updates = <String, dynamic>{'name': newName};
+    if (gridWidth != null) updates['gridWidth'] = gridWidth;
+    if (gridHeight != null) updates['gridHeight'] = gridHeight;
+    if (imageUrl != null) updates['imageUrl'] = imageUrl;
+    await _db.collection('floors').doc(floorId).update(updates);
   }
 
   Future<void> deleteFloor(String floorId) async {
