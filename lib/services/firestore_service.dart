@@ -420,4 +420,40 @@ class FirestoreService {
         .map((snap) =>
             snap.docs.map((d) => Device.fromFirestore(floorId, d)).toList());
   }
+
+  // ────────────────────────────────────────────────
+  //  DEVICE SCHEDULING
+  // ────────────────────────────────────────────────
+
+  /// Sets (or replaces) a daily schedule for a bulb/device.
+  /// [scheduleStart] and [scheduleEnd] must be 24-hour strings, e.g. "18:15".
+  Future<void> updateDeviceSchedule(
+    String floorId,
+    String deviceId,
+    String scheduleStart,
+    String scheduleEnd,
+  ) async {
+    await _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .update({
+      'scheduleStart': scheduleStart,
+      'scheduleEnd': scheduleEnd,
+    });
+  }
+
+  /// Removes the schedule fields from a device document entirely.
+  Future<void> clearDeviceSchedule(String floorId, String deviceId) async {
+    await _db
+        .collection('floors')
+        .doc(floorId)
+        .collection('devices')
+        .doc(deviceId)
+        .update({
+      'scheduleStart': FieldValue.delete(),
+      'scheduleEnd': FieldValue.delete(),
+    });
+  }
 }
