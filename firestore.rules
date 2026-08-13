@@ -18,6 +18,10 @@ service cloud.firestore {
       // Subcollections under floors
       match /devices/{deviceId} {
         allow read, write: if true;
+        
+        match /switches/{switchId} {
+          allow read, write: if true;
+        }
       }
       match /rooms/{roomId} {
         allow read, write: if true;

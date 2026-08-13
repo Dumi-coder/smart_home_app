@@ -26,7 +26,7 @@ class SimulatorScreen extends StatelessWidget {
     switch (type) {
       case 'outlet':
         return Icons.power;
-      case 'multiswitch':
+      case 'MULTI_SWITCH':
         return Icons.dashboard_customize;
       case 'iron':
         return Icons.iron;
@@ -34,6 +34,10 @@ class SimulatorScreen extends StatelessWidget {
         return Icons.lightbulb;
       case 'camera':
         return Icons.videocam;
+      case 'fan':
+        return Icons.air;
+      case 'ac':
+        return Icons.ac_unit;
       default:
         return Icons.device_unknown;
     }
@@ -95,17 +99,113 @@ class SimulatorScreen extends StatelessWidget {
         ),
       );
     }
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.9,
+    
+    final multiSwitches = devices.whereType<MultiSwitchDevice>().toList();
+    final otherDevices = devices.where((d) => d is! MultiSwitchDevice).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...multiSwitches.map((device) => _multiSwitchSimulatorTile(device)),
+        if (otherDevices.isNotEmpty)
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.9,
+            ),
+            itemCount: otherDevices.length,
+            itemBuilder: (context, i) => _deviceTile(otherDevices[i]),
+          ),
+      ],
+    );
+  }
+
+  Widget _multiSwitchSimulatorTile(MultiSwitchDevice device) {
+    final color = _statusColor(device.status);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.pineDeep,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.8), width: 2),
       ),
-      itemCount: devices.length,
-      itemBuilder: (context, i) => _deviceTile(devices[i]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+            ),
+            child: Row(
+              children: [
+                Icon(_deviceIcon(device.type), color: color, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    device.name.toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+                Text(
+                  statusToString(device.status),
+                  style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          StreamBuilder<List<ChildSwitch>>(
+            stream: _service.streamChildSwitches(device.floorId, device.id),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator());
+              final switches = snapshot.data!;
+              return Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  children: switches.map((s) {
+                    return Row(
+                      children: [
+                        Icon(
+                          s.status == 'ON' ? Icons.circle : Icons.circle_outlined,
+                          size: 14,
+                          color: s.status == 'ON' ? AppColors.brass : Colors.white54,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Switch ${s.switchNumber}  ${s.name.toUpperCase()}',
+                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                        ),
+                        DropdownButton<String>(
+                          value: ['ON', 'OFF', 'ERROR', 'DISCONNECTED'].contains(s.status) ? s.status : 'OFF',
+                          dropdownColor: AppColors.pineDeep,
+                          style: const TextStyle(color: Colors.white, fontSize: 11),
+                          underline: const SizedBox(),
+                          iconSize: 16,
+                          items: ['ON', 'OFF', 'ERROR', 'DISCONNECTED']
+                              .map((st) => DropdownMenuItem(value: st, child: Text(st)))
+                              .toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              _service.updateChildSwitchStatus(device.floorId, device.id, s.id, val);
+                            }
+                          },
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              );
+            }
+          ),
+        ],
+      ),
     );
   }
 

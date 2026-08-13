@@ -26,18 +26,42 @@ class SeedData {
     });
 
     // 3. Multi-switch (gang box with 3 switches)
-    await devicesRef.add({
-      'name': 'Hallway Switch Panel',
-      'type': 'multiswitch',
+    final msRef = await devicesRef.add({
+      'name': 'Kitchen Switch Panel',
+      'type': 'MULTI_SWITCH',
       'x': 3,
       'y': 2,
       'status': 'ON',
-      'room': 'Living Room',
-      'switches': [
-        {'id': 'sw1', 'label': 'Ceiling Light', 'state': true},
-        {'id': 'sw2', 'label': 'Fan', 'state': false},
-        {'id': 'sw3', 'label': 'Porch Light', 'state': false},
-      ],
+      'room': 'Kitchen',
+    });
+    
+    final msSwitchesRef = msRef.collection('switches');
+    await msSwitchesRef.add({
+      'device_id': msRef.id,
+      'switch_number': 1,
+      'name': 'Ceiling Light',
+      'status': 'ON',
+      'enabled': true,
+      'created_at': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+    await msSwitchesRef.add({
+      'device_id': msRef.id,
+      'switch_number': 2,
+      'name': 'Exhaust Fan',
+      'status': 'OFF',
+      'enabled': true,
+      'created_at': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+    await msSwitchesRef.add({
+      'device_id': msRef.id,
+      'switch_number': 3,
+      'name': 'Cabinet Light',
+      'status': 'ON',
+      'enabled': true,
+      'created_at': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
     });
 
     // 4. Iron (safety-critical, with max duration)

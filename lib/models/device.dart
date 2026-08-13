@@ -33,7 +33,7 @@ abstract class Device {
   final String id;
   final String floorId;
   final String name;
-  final String type; // "outlet" | "multiswitch" | "iron" | "bulb" | "camera"
+  final String type; // "outlet" | "MULTI_SWITCH" | "iron" | "bulb" | "camera" | "fan" | "ac"
   final double x;
   final double y;
   final DeviceStatus status;
@@ -65,7 +65,7 @@ abstract class Device {
     final room = data['room'] as String?;
 
     switch (type) {
-      case 'multiswitch':
+      case 'MULTI_SWITCH':
         return MultiSwitchDevice(
           id: id,
           floorId: floorId,
@@ -74,9 +74,6 @@ abstract class Device {
           y: y,
           status: status,
           room: room,
-          switches: (data['switches'] as List<dynamic>? ?? [])
-              .map((s) => SwitchItem.fromMap(s as Map<String, dynamic>))
-              .toList(),
         );
       case 'iron':
         return IronDevice(
@@ -114,6 +111,27 @@ abstract class Device {
           status: status,
           room: room,
           snapshotUrl: data['snapshotUrl'] ?? '',
+        );
+      case 'fan':
+        return FanDevice(
+          id: id,
+          floorId: floorId,
+          name: name,
+          x: x,
+          y: y,
+          status: status,
+          room: room,
+        );
+      case 'ac':
+        return AcDevice(
+          id: id,
+          floorId: floorId,
+          name: name,
+          x: x,
+          y: y,
+          status: status,
+          room: room,
+          temperature: (data['temperature'] ?? 24).toDouble(),
         );
       case 'outlet':
       default:
@@ -154,26 +172,63 @@ class OutletDevice extends Device {
 }
 
 // ---------------- Multi-switch ----------------
-class SwitchItem {
+class ChildSwitch {
   final String id;
-  final String label;
-  final bool state;
+  final String deviceId;
+  final int switchNumber;
+  final String name;
+  final String status;
+  final bool enabled;
+  final String? connectedDeviceId;
+  final String? connectedDeviceName;
+  final Timestamp? createdAt;
+  final Timestamp? updatedAt;
 
-  SwitchItem({required this.id, required this.label, required this.state});
+  ChildSwitch({
+    required this.id,
+    required this.deviceId,
+    required this.switchNumber,
+    required this.name,
+    required this.status,
+    required this.enabled,
+    this.connectedDeviceId,
+    this.connectedDeviceName,
+    this.createdAt,
+    this.updatedAt,
+  });
 
-  factory SwitchItem.fromMap(Map<String, dynamic> map) => SwitchItem(
-    id: map['id'],
-    label: map['label'],
-    state: map['state'] ?? false,
-  );
+  factory ChildSwitch.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return ChildSwitch(
+      id: doc.id,
+      deviceId: data['device_id'] ?? '',
+      switchNumber: data['switch_number'] ?? 1,
+      name: data['name'] ?? 'Unnamed',
+      status: data['status'] ?? 'OFF',
+      enabled: data['enabled'] ?? true,
+      connectedDeviceId: data['connected_device_id'] as String?,
+      connectedDeviceName: data['connected_device_name'] as String?,
+      createdAt: data['created_at'] is Timestamp ? data['created_at'] as Timestamp : null,
+      updatedAt: data['updated_at'] is Timestamp ? data['updated_at'] as Timestamp : null,
+    );
+  }
 
-  Map<String, dynamic> toMap() => {'id': id, 'label': label, 'state': state};
+  Map<String, dynamic> toMap() => {
+    'device_id': deviceId,
+    'switch_number': switchNumber,
+    'name': name,
+    'status': status,
+    'enabled': enabled,
+    if (connectedDeviceId != null) 'connected_device_id': connectedDeviceId,
+    if (connectedDeviceName != null) 'connected_device_name': connectedDeviceName,
+    'created_at': createdAt,
+    'updated_at': updatedAt,
+  };
 }
 
-class MultiSwitchDevice extends Device {
-  final List<SwitchItem> switches;
-
-  MultiSwitchDevice({
+// ---------------- Fan ----------------
+class FanDevice extends Device {
+  FanDevice({
     required super.id,
     required super.floorId,
     required super.name,
@@ -181,8 +236,7 @@ class MultiSwitchDevice extends Device {
     required super.y,
     required super.status,
     super.room,
-    required this.switches,
-  }) : super(type: 'multiswitch');
+  }) : super(type: 'fan');
 
   @override
   Map<String, dynamic> toMap() => {
@@ -191,7 +245,55 @@ class MultiSwitchDevice extends Device {
     'x': x,
     'y': y,
     'status': statusToString(status),
-    'switches': switches.map((s) => s.toMap()).toList(),
+    if (room != null) 'room': room,
+  };
+}
+
+// ---------------- AC ----------------
+class AcDevice extends Device {
+  final double temperature;
+
+  AcDevice({
+    required super.id,
+    required super.floorId,
+    required super.name,
+    required super.x,
+    required super.y,
+    required super.status,
+    super.room,
+    this.temperature = 24.0,
+  }) : super(type: 'ac');
+
+  @override
+  Map<String, dynamic> toMap() => {
+    'name': name,
+    'type': type,
+    'x': x,
+    'y': y,
+    'status': statusToString(status),
+    'temperature': temperature,
+    if (room != null) 'room': room,
+  };
+}
+
+class MultiSwitchDevice extends Device {
+  MultiSwitchDevice({
+    required super.id,
+    required super.floorId,
+    required super.name,
+    required super.x,
+    required super.y,
+    required super.status,
+    super.room,
+  }) : super(type: 'MULTI_SWITCH');
+
+  @override
+  Map<String, dynamic> toMap() => {
+    'name': name,
+    'type': type,
+    'x': x,
+    'y': y,
+    'status': statusToString(status),
     if (room != null) 'room': room,
   };
 }

@@ -29,10 +29,10 @@ class _AllDevicesScreenState extends State<AllDevicesScreen> {
   bool _matchesCategory(Device d) {
     if (_selectedCategory == 'All') return true;
     if (_selectedCategory == 'Lights' && d.type == 'bulb') return true;
-    if (_selectedCategory == 'HVAC' && d.type == 'iron') return true;
+    if (_selectedCategory == 'HVAC' && (d.type == 'iron' || d.type == 'fan' || d.type == 'ac')) return true;
     if (_selectedCategory == 'Sensors' && d.type == 'sensor') return true;
     if (_selectedCategory == 'Outlets' &&
-        (d.type == 'outlet' || d.type == 'multiswitch')) return true;
+        (d.type == 'outlet' || d.type == 'MULTI_SWITCH')) return true;
     if (_selectedCategory == 'Cameras' && d.type == 'camera') return true;
     return false;
   }
@@ -183,11 +183,17 @@ class _AllDevicesScreenState extends State<AllDevicesScreen> {
                           icon = Icons.iron;
                           iconColor = AppColors.statusError;
                         } else if (d is MultiSwitchDevice) {
-                          icon = Icons.toggle_on_outlined;
-                          iconColor = AppColors.pineDeep;
+                          icon = Icons.dashboard_customize_outlined;
+                          iconColor = AppColors.accentMultiswitch;
                         } else if (d is CameraDevice) {
                           icon = Icons.videocam_outlined;
                           iconColor = AppColors.accentCamera;
+                        } else if (d is FanDevice) {
+                          icon = Icons.air;
+                          iconColor = AppColors.accentBulb;
+                        } else if (d is AcDevice) {
+                          icon = Icons.ac_unit;
+                          iconColor = AppColors.primaryActive;
                         } else {
                           icon = Icons.device_unknown;
                           iconColor = Colors.grey;

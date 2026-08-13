@@ -105,7 +105,7 @@ class DeviceDetailSheet extends StatelessWidget {
                               ),
                               DropdownButton<String>(
                                 value: selectedType,
-                                items: ['outlet', 'bulb', 'iron', 'multiswitch', 'camera']
+                                items: ['outlet', 'bulb', 'iron', 'MULTI_SWITCH', 'camera', 'fan', 'ac']
                                     .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                                     .toList(),
                                 onChanged: (val) {
@@ -183,109 +183,159 @@ class DeviceDetailSheet extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // ── Toggle button ──
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                service.toggleDevice(
-                    device.floorId, device.id, !_isOn);
-                Navigator.pop(context);
-              },
-              icon: Icon(
-                Icons.power_settings_new,
-                color: _isOn ? AppColors.textOnDark : AppColors.textOnDark,
-              ),
-              label: Text(
-                _isOn ? 'Turn Off' : 'Turn On',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textOnDark,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    _isOn ? AppColors.chipSelected : AppColors.primaryActiveDark,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.button),
-                ),
-                elevation: 0,
-              ),
+          // ── Multi-Switch Controls ──
+          if (device is MultiSwitchDevice) ...[
+            StreamBuilder<List<ChildSwitch>>(
+              stream: service.streamChildSwitches(device.floorId, device.id),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator());
+                final switches = snapshot.data!;
+                return Column(
+                  children: switches.map((s) {
+                    final isError = s.status == 'ERROR';
+                    final isDisconnected = s.status == 'DISCONNECTED';
+                    final isOn = s.status == 'ON';
+                    
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isOn ? Icons.lightbulb : Icons.lightbulb_outline,
+                            size: 16,
+                            color: isOn ? AppColors.accentMultiswitch : AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              s.name,
+                              style: TextStyle(
+                                fontSize: 15, 
+                                fontWeight: FontWeight.w500, 
+                                color: isError ? AppColors.statusError : AppColors.textPrimary,
+                                decoration: !s.enabled ? TextDecoration.lineThrough : null,
+                              ),
+                            ),
+                          ),
+                          if (isError || isDisconnected)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: Text(
+                                s.status,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isError ? AppColors.statusError : AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          Switch(
+                            value: isOn,
+                            activeColor: AppColors.accentMultiswitch,
+                            onChanged: (s.enabled && !isError && !isDisconnected)
+                                ? (val) {
+                                    service.toggleSubSwitch(
+                                      device.floorId,
+                                      device.id,
+                                      s.id,
+                                      val,
+                                    );
+                                  }
+                                : null,
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              }
             ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // ── Brightness slider (visual placeholder) ──
-          if (device.type == 'bulb') ...[
-            Row(
-              children: [
-                const Text(
-                  'Brightness',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                  ),
+          ] else ...[
+            // ── Toggle button (for non-multiswitch) ──
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  service.toggleDevice(
+                      device.floorId, device.id, !_isOn);
+                  Navigator.pop(context);
+                },
+                icon: Icon(
+                  Icons.power_settings_new,
+                  color: _isOn ? AppColors.textOnDark : AppColors.textOnDark,
                 ),
-                const Spacer(),
-                Text(
-                  '80%',
-                  style: TextStyle(
-                    fontSize: 13,
+                label: Text(
+                  _isOn ? 'Turn Off' : 'Turn On',
+                  style: const TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary.withValues(alpha: 0.7),
+                    color: AppColors.textOnDark,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.divider),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      _isOn ? AppColors.chipSelected : AppColors.primaryActiveDark,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.button),
                   ),
-                  child: const Icon(Icons.remove, size: 16),
+                  elevation: 0,
                 ),
-                Expanded(
-                  child: SliderTheme(
-                    data: SliderThemeData(
-                      activeTrackColor: AppColors.primaryActive,
-                      inactiveTrackColor: AppColors.divider,
-                      thumbColor: AppColors.primaryActiveDark,
-                      overlayColor:
-                          AppColors.primaryActive.withValues(alpha: 0.2),
-                      trackHeight: 6,
-                    ),
-                    child: Slider(
-                      value: 0.8,
-                      onChanged: (_) {
-                        // Placeholder — no brightness field in schema yet
-                      },
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.divider),
-                  ),
-                  child: const Icon(Icons.add, size: 16),
-                ),
-              ],
+              ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // ── Schedule section ──
-            _ScheduleSection(device: device as BulbDevice),
+            // ── Brightness slider (visual placeholder) ──
+            if (device.type == 'bulb') ...[
+              _InteractiveSlider(
+                initialValue: 0.8,
+                min: 0.0,
+                max: 1.0,
+                label: 'Brightness',
+                valueLabelBuilder: (val) => '${(val * 100).round()}%',
+                onChanged: (val) {
+                  // Optional: update firestore when schema adds brightness
+                },
+              ),
+              const SizedBox(height: 20),
+              // ── Schedule section ──
+              _ScheduleSection(device: device as BulbDevice),
+            ],
+            
+            // ── Fan Speed slider (visual placeholder) ──
+            if (device.type == 'fan') ...[
+              _InteractiveSlider(
+                initialValue: 0.5,
+                min: 0.0,
+                max: 1.0,
+                divisions: 2, // 3 steps: 0.0 (Low), 0.5 (Medium), 1.0 (High)
+                label: 'Speed',
+                valueLabelBuilder: (val) {
+                  if (val < 0.33) return 'Low';
+                  if (val < 0.66) return 'Medium';
+                  return 'High';
+                },
+                onChanged: (val) {
+                  // Optional: update firestore when schema adds fan speed
+                },
+              ),
+            ],
+
+            // ── AC Temperature slider ──
+            if (device.type == 'ac') ...[
+              _InteractiveSlider(
+                initialValue: (device as AcDevice).temperature,
+                min: 16.0,
+                max: 30.0,
+                divisions: 14,
+                label: 'Temperature',
+                valueLabelBuilder: (val) => '${val.round()}°C',
+                onChanged: (val) {
+                  service.updateDevice(device.floorId, device.id, {'temperature': val});
+                },
+              ),
+            ],
           ],
 
           const SizedBox(height: 8),
@@ -447,18 +497,12 @@ class _ScheduleSection extends StatelessWidget {
             ),
           ] else ...[
             Row(
-              children: [
-                const Icon(Icons.info_outline_rounded,
-                    size: 13, color: AppColors.textSecondary),
-                const SizedBox(width: 6),
-                Text(
-                  'No schedule set — tap "Set Schedule" to add one.',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
+              // children: [
+              //   const Icon(Icons.info_outline_rounded,
+              //       size: 13, color: AppColors.textSecondary),
+              //   const SizedBox(width: 6),
+              //
+              // ],
             ),
           ],
         ],
@@ -508,7 +552,6 @@ class _TimeCell extends StatelessWidget {
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
-            fontFamily: 'monospace',
           ),
         ),
       ],
@@ -516,3 +559,128 @@ class _TimeCell extends StatelessWidget {
   }
 }
 
+class _InteractiveSlider extends StatefulWidget {
+  final double initialValue;
+  final double min;
+  final double max;
+  final int? divisions;
+  final String label;
+  final String Function(double) valueLabelBuilder;
+  final ValueChanged<double> onChanged;
+
+  const _InteractiveSlider({
+    required this.initialValue,
+    this.min = 0.0,
+    this.max = 1.0,
+    this.divisions,
+    required this.label,
+    required this.valueLabelBuilder,
+    required this.onChanged,
+  });
+
+  @override
+  State<_InteractiveSlider> createState() => _InteractiveSliderState();
+}
+
+class _InteractiveSliderState extends State<_InteractiveSlider> {
+  late double _currentValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentValue = widget.initialValue;
+  }
+
+  @override
+  void didUpdateWidget(covariant _InteractiveSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValue != widget.initialValue) {
+      _currentValue = widget.initialValue;
+    }
+  }
+
+  void _updateValue(double newValue) {
+    if (newValue < widget.min) newValue = widget.min;
+    if (newValue > widget.max) newValue = widget.max;
+    setState(() => _currentValue = newValue);
+    widget.onChanged(newValue);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Text(
+              widget.label,
+              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+            const Spacer(),
+            Text(
+              widget.valueLabelBuilder(_currentValue),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            GestureDetector(
+              onTap: () {
+                double step = widget.divisions != null ? (widget.max - widget.min) / widget.divisions! : (widget.max - widget.min) / 10;
+                _updateValue(_currentValue - step);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.divider),
+                ),
+                child: const Icon(Icons.remove, size: 16),
+              ),
+            ),
+            Expanded(
+              child: SliderTheme(
+                data: SliderThemeData(
+                  activeTrackColor: AppColors.primaryActive,
+                  inactiveTrackColor: AppColors.divider,
+                  thumbColor: AppColors.primaryActiveDark,
+                  overlayColor: AppColors.primaryActive.withValues(alpha: 0.2),
+                  trackHeight: 6,
+                ),
+                child: Slider(
+                  min: widget.min,
+                  max: widget.max,
+                  divisions: widget.divisions,
+                  value: _currentValue,
+                  onChanged: _updateValue,
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                double step = widget.divisions != null ? (widget.max - widget.min) / widget.divisions! : (widget.max - widget.min) / 10;
+                _updateValue(_currentValue + step);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.divider),
+                ),
+                child: const Icon(Icons.add, size: 16),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
