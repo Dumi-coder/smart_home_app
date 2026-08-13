@@ -3,6 +3,7 @@ import '../models/device.dart';
 import '../services/firestore_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_icons.dart';
+import 'device_schedule_bottom_sheet.dart';
 
 /// Bottom sheet showing device details with toggle and brightness placeholder.
 class DeviceDetailSheet extends StatelessWidget {
@@ -280,6 +281,11 @@ class DeviceDetailSheet extends StatelessWidget {
                 ),
               ],
             ),
+
+            const SizedBox(height: 20),
+
+            // ── Schedule section ──
+            _ScheduleSection(device: device as BulbDevice),
           ],
 
           const SizedBox(height: 8),
@@ -315,3 +321,198 @@ class _StatusChip extends StatelessWidget {
     );
   }
 }
+
+/// Inline schedule card shown inside [DeviceDetailSheet] for [BulbDevice]s.
+class _ScheduleSection extends StatelessWidget {
+  final BulbDevice device;
+
+  const _ScheduleSection({required this.device});
+
+  bool get _hasSchedule =>
+      device.scheduleStart != null && device.scheduleEnd != null;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _hasSchedule
+            ? AppColors.brass.withValues(alpha: 0.07)
+            : AppColors.background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _hasSchedule
+              ? AppColors.brass.withValues(alpha: 0.35)
+              : AppColors.divider,
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header row ──
+          Row(
+            children: [
+              Icon(
+                Icons.schedule_rounded,
+                size: 16,
+                color: _hasSchedule ? AppColors.brass : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Daily Schedule',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color:
+                      _hasSchedule ? AppColors.brassDeep : AppColors.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              // Edit / Set button
+              GestureDetector(
+                onTap: () {
+                  DeviceScheduleBottomSheet.show(
+                    context,
+                    floorId: device.floorId,
+                    deviceId: device.id,
+                    deviceName: device.name,
+                    initialStart: device.scheduleStart,
+                    initialEnd: device.scheduleEnd,
+                  );
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.brass,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _hasSchedule ? Icons.edit_rounded : Icons.add_rounded,
+                        size: 12,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _hasSchedule ? 'Edit' : 'Set Schedule',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // ── Time display or empty state ──
+          if (_hasSchedule) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _TimeCell(
+                    icon: Icons.wb_sunny_outlined,
+                    label: 'Turn ON',
+                    time: device.scheduleStart!,
+                    color: AppColors.brass,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                Expanded(
+                  child: _TimeCell(
+                    icon: Icons.nights_stay_outlined,
+                    label: 'Turn OFF',
+                    time: device.scheduleEnd!,
+                    color: AppColors.pine,
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            Row(
+              children: [
+                const Icon(Icons.info_outline_rounded,
+                    size: 13, color: AppColors.textSecondary),
+                const SizedBox(width: 6),
+                Text(
+                  'No schedule set — tap "Set Schedule" to add one.',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact time readout cell used inside [_ScheduleSection].
+class _TimeCell extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String time;
+  final Color color;
+
+  const _TimeCell({
+    required this.icon,
+    required this.label,
+    required this.time,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 11, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: color,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(
+          time,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+            fontFamily: 'monospace',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
