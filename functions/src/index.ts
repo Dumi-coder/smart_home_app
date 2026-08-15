@@ -6,9 +6,10 @@ import {getFirestore, FieldValue, Timestamp} from "firebase-admin/firestore";
 initializeApp();
 const db = getFirestore();
 
-// ─────────────────────────────────────────────
-//  Iron safety cutoff
-// ─────────────────────────────────────────────
+/**
+ * Runs every minute. Force-shuts-off any iron whose ON duration exceeds
+ * its configured maxOnDurationMinutes, independent of whether the app is open.
+ */
 export const checkSafetyCutoffs = onSchedule(
   "every 1 minutes",
   async () => {
@@ -63,9 +64,11 @@ export const checkSafetyCutoffs = onSchedule(
   }
 );
 
-// ─────────────────────────────────────────────
-//  Bulb scheduling
-// ─────────────────────────────────────────────
+/**
+ * Runs every minute. Turns bulbs ON/OFF based on their scheduleStart/scheduleEnd
+ * window (Asia/Colombo time). Handles windows that wrap past midnight.
+ */
+
 export const checkBulbSchedules = onSchedule(
   "every 1 minutes",
   async () => {
