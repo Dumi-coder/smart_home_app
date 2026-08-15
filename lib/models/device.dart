@@ -28,7 +28,8 @@ String statusToString(DeviceStatus status) {
   }
 }
 
-/// Base class every device type extends.
+/// Base type for every smart-home device. Subclasses add their own
+/// type-specific fields (e.g. IronDevice adds maxOnDurationMinutes).
 abstract class Device {
   final String id;
   final String floorId;
@@ -53,7 +54,7 @@ abstract class Device {
   /// Every subclass must know how to serialize its own extra fields.
   Map<String, dynamic> toMap();
 
-  /// Factory that reads the "type" field and builds the correct subclass.
+  /// Reads the Firestore `type` field and builds the matching Device subclass.
   factory Device.fromFirestore(String floorId, DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final type = data['type'] as String;

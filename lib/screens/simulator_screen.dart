@@ -4,6 +4,9 @@ import '../models/device.dart';
 import '../services/firestore_service.dart';
 import '../theme/app_theme.dart';
 
+/// In-app stand-in for physical hardware. Reuses the same Firestore
+/// streams as the control screens, so it stays in sync automatically —
+/// no separate simulator sync logic needed.
 class SimulatorScreen extends StatelessWidget {
   SimulatorScreen({super.key});
 
@@ -124,6 +127,8 @@ class SimulatorScreen extends StatelessWidget {
     );
   }
 
+  /// Renders a MULTI_SWITCH's child channels with per-channel status
+  /// dropdowns, useful for demoing ERROR/DISCONNECTED states live.
   Widget _multiSwitchSimulatorTile(MultiSwitchDevice device) {
     final color = _statusColor(device.status);
     return Container(
