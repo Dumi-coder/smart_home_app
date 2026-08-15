@@ -15,6 +15,8 @@ class FloorPlanScreen extends StatefulWidget {
   State<FloorPlanScreen> createState() => _FloorPlanScreenState();
 }
 
+/// Renders the floor's device grid: background image + grid lines,
+/// dynamically-computed room rectangles, and draggable device dots.
 class _FloorPlanScreenState extends State<FloorPlanScreen> {
   final FirestoreService _service = FirestoreService();
 
@@ -281,9 +283,8 @@ class _FloorPlanScreenState extends State<FloorPlanScreen> {
         ),
       );
 
-  // ─────────────────────────────────────────────
-  //  Room rectangles with BIG labels
-  // ─────────────────────────────────────────────
+  /// Computes each room's bounding box from its devices' (x, y) positions —
+  /// room boundaries aren't stored, they're derived on render.
   List<Widget> _roomRects({
     required List<String> rooms,
     required List<Device> devices,
@@ -361,9 +362,8 @@ class _FloorPlanScreenState extends State<FloorPlanScreen> {
     return out;
   }
 
-  // ─────────────────────────────────────────────
-  //  Device dot + name label
-  // ─────────────────────────────────────────────
+  /// Draggable device marker; dropping it on a new cell persists {x, y}
+  /// straight to Firestore via updateDevice().
   Widget _deviceWidget(
       Device dev, int gridW, int gridH, double cellW, double cellH) {
     final gx = dev.x.toInt().clamp(0, gridW - 1);

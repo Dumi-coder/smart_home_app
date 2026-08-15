@@ -6,6 +6,8 @@ import '../models/notification_alert.dart';
 import '../models/house_member.dart';
 import '../models/energy_reading.dart';
 
+/// Single access point for all Firestore reads/writes — screens never
+/// talk to Firestore directly, they go through this service.
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
@@ -166,7 +168,8 @@ class FirestoreService {
             .toList());
   }
 
-  /// Toggle a single switch within a multi-switch unit.
+/// Updates one channel of a multi-switch and recomputes the parent
+/// device's aggregate status (ERROR > DISCONNECTED > ON > OFF).
   Future<void> toggleSubSwitch(
       String floorId, String deviceId, String switchId, bool turnOn) async {
     final ref = _db
