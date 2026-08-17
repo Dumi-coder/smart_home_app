@@ -52,7 +52,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // Auto-select first floor if none selected
             if (_selectedFloorId == null && floors.isNotEmpty) {
-              _selectedFloorId = floors.first.id;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    _selectedFloorId = floors.first.id;
+                  });
+                }
+              });
+              return const Center(
+                child: CircularProgressIndicator(
+                  color: AppColors.primaryActiveDark,
+                ),
+              );
             }
 
             return CustomScrollView(
@@ -63,19 +74,45 @@ class _HomeScreenState extends State<HomeScreen> {
                 SliverToBoxAdapter(child: _buildActiveDevicesBanner()),
                 // ── Floor chips ──
                 SliverToBoxAdapter(child: _buildFloorChips(floors)),
-                // ── Device count + view toggle ──
+                // ── Device count + view toggle + device grid ──
                 if (_selectedFloorId != null)
-                  SliverToBoxAdapter(
-                    child: _buildDeviceCountRow(),
-                  ),
-                // ── Quick actions ──
-                SliverToBoxAdapter(child: _buildQuickActions()),
-                // ── Room chips ──
-                if (_selectedFloorId != null)
-                  SliverToBoxAdapter(child: _buildRoomChips()),
-                // ── Device grid ──
-                if (_selectedFloorId != null)
-                  _buildDeviceGrid()
+                  StreamBuilder<List<Device>>(
+                    stream: _service.streamDevices(_selectedFloorId!),
+                    builder: (context, deviceSnap) {
+                      if (deviceSnap.hasError) {
+                        return SliverToBoxAdapter(
+                          child: Center(child: Text('Error: ${deviceSnap.error}')),
+                        );
+                      }
+                      if (!deviceSnap.hasData) {
+                        return const SliverToBoxAdapter(
+                          child: Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(32),
+                              child: CircularProgressIndicator(
+                                color: AppColors.primaryActiveDark,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      final allFloorDevices = deviceSnap.data!;
+                      
+                      return SliverMainAxisGroup(
+                        slivers: [
+                          // Device count row
+                          SliverToBoxAdapter(child: _buildDeviceCountRow(allFloorDevices.length)),
+                          // Quick actions
+                          SliverToBoxAdapter(child: _buildQuickActions()),
+                          // Room chips
+                          SliverToBoxAdapter(child: _buildRoomChips()),
+                          // Device grid
+                          _buildDeviceGridFromData(deviceSnap),
+                        ],
+                      );
+                    },
+                  )
                 else
                   const SliverToBoxAdapter(
                     child: Padding(
@@ -155,9 +192,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                Text(
-                  'Alex',
-                  style: AppFonts.display(fontSize: 21, fontWeight: FontWeight.w600),
+                StreamBuilder<DocumentSnapshot>(
+                  stream: _service.streamProfile(),
+                  builder: (context, profileSnap) {
+                    final data = profileSnap.data?.data() as Map<String, dynamic>?;
+                    final name = (data?['name'] as String?)?.split(' ').first ?? 'Dumindu';
+                    return Text(
+                      name,
+                      style: AppFonts.display(fontSize: 21, fontWeight: FontWeight.w600),
+                    );
+                  },
                 ),
               ],
             ),
@@ -379,58 +423,53 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+
   // ═══════════════════════════════════════════════
   //  DEVICE COUNT ROW
   // ═══════════════════════════════════════════════
-  Widget _buildDeviceCountRow() {
+  Widget _buildDeviceCountRow(int count) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      child: StreamBuilder<List<Device>>(
-        stream: _service.streamDevices(_selectedFloorId!),
-        builder: (context, snap) {
-          final count = snap.data?.length ?? 0;
-          return Row(
-            children: [
-              Text(
-                '$count device${count == 1 ? '' : 's'} on floor',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
+      child: Row(
+        children: [
+          Text(
+            '$count device${count == 1 ? '' : 's'} on floor',
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FloorPlanScreen(floorId: _selectedFloorId!),
                 ),
+              );
+            },
+            child: Container(
+              padding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.divider),
               ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => FloorPlanScreen(floorId: _selectedFloorId!),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.divider),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.map_outlined,
-                          size: 16, color: AppColors.textPrimary),
-                      SizedBox(width: 6),
-                      Text('Floor Plan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.map_outlined,
+                      size: 16, color: AppColors.textPrimary),
+                  SizedBox(width: 6),
+                  Text('Floor Plan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                ],
               ),
-            ],
-          );
-        },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -503,7 +542,7 @@ class _HomeScreenState extends State<HomeScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: rooms.length + 1,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (context, index) {
                 if (index == rooms.length) {
                   return RoomChip(
@@ -536,104 +575,99 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ═══════════════════════════════════════════════
-  //  DEVICE GRID
+  //  DEVICE GRID (from shared snapshot data)
   // ═══════════════════════════════════════════════
-  Widget _buildDeviceGrid() {
-    return StreamBuilder<List<Device>>(
-      stream: _service.streamDevices(_selectedFloorId!),
-      builder: (context, snap) {
-        if (snap.hasError) {
-          return SliverToBoxAdapter(
-            child: Center(child: Text('Error: ${snap.error}')),
-          );
-        }
-        if (!snap.hasData) {
-          return const SliverToBoxAdapter(
-            child: Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(
-                  color: AppColors.primaryActiveDark,
-                ),
+  Widget _buildDeviceGridFromData(AsyncSnapshot<List<Device>> snap) {
+    if (snap.hasError) {
+      return SliverToBoxAdapter(
+        child: Center(child: Text('Error: ${snap.error}')),
+      );
+    }
+    if (!snap.hasData) {
+      return const SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(
+              color: AppColors.primaryActiveDark,
+            ),
+          ),
+        ),
+      );
+    }
+
+    var devices = snap.data!;
+
+    // Filter by room
+    if (_selectedRoom != 'All') {
+      devices = devices.where((d) => d.room == _selectedRoom).toList();
+    }
+
+    if (devices.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(
+            child: Text(
+              'No devices in this view.',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
               ),
             ),
-          );
-        }
+          ),
+        ),
+      );
+    }
 
-        var devices = snap.data!;
+    final multiSwitches = devices.whereType<MultiSwitchDevice>().toList();
+    final otherDevices = devices.where((d) => d is! MultiSwitchDevice).toList();
 
-        // Filter by room
-        if (_selectedRoom != 'All') {
-          devices = devices.where((d) => d.room == _selectedRoom).toList();
-        }
-
-        if (devices.isEmpty) {
-          return const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(
-                child: Text(
-                  'No devices in this view.',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                  ),
-                ),
+    return SliverMainAxisGroup(
+      slivers: [
+        // Multi-switch tiles rendered full-width above the grid
+        if (multiSwitches.isNotEmpty)
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final device = multiSwitches[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: MultiSwitchTile(device: device, service: _service),
+                );
+              },
+              childCount: multiSwitches.length,
+            ),
+          ),
+        // Regular devices in a 2-column grid
+        if (otherDevices.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 14,
+                crossAxisSpacing: 14,
+                childAspectRatio: 0.92,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final device = otherDevices[index];
+                  return DeviceCard(
+                    device: device,
+                    onToggle: () => _service.toggleDevice(
+                      device.floorId,
+                      device.id,
+                      device.status != DeviceStatus.on,
+                    ),
+                    onTap: () => _showDeviceDetail(device),
+                  );
+                },
+                childCount: otherDevices.length,
               ),
             ),
-          );
-        }
-
-        final multiSwitches = devices.whereType<MultiSwitchDevice>().toList();
-        final otherDevices = devices.where((d) => d is! MultiSwitchDevice).toList();
-
-        return SliverMainAxisGroup(
-          slivers: [
-            // Multi-switch tiles rendered full-width above the grid
-            if (multiSwitches.isNotEmpty)
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final device = multiSwitches[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: MultiSwitchTile(device: device, service: _service),
-                    );
-                  },
-                  childCount: multiSwitches.length,
-                ),
-              ),
-            // Regular devices in a 2-column grid
-            if (otherDevices.isNotEmpty)
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 14,
-                    crossAxisSpacing: 14,
-                    childAspectRatio: 0.92,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final device = otherDevices[index];
-                      return DeviceCard(
-                        device: device,
-                        onToggle: () => _service.toggleDevice(
-                          device.floorId,
-                          device.id,
-                          device.status != DeviceStatus.on,
-                        ),
-                        onTap: () => _showDeviceDetail(device),
-                      );
-                    },
-                    childCount: otherDevices.length,
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
+          ),
+      ],
     );
   }
 

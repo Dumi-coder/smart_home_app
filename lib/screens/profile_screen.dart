@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/device.dart';
 import '../models/house_member.dart';
 import '../services/firestore_service.dart';
@@ -44,92 +45,112 @@ class _ProfileScreenState extends State<ProfileScreen> {
   //  PROFILE CARD + STATS
   // ═══════════════════════════════════════════════
   Widget _buildProfileCard() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.card),
-        boxShadow: const [BoxShadow(color: AppColors.cardShadow, blurRadius: 8, offset: Offset(0, 3))],
-      ),
-      child: Column(
-        children: [
-          Row(
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _service.streamProfile(),
+      builder: (context, profileSnap) {
+        final data = profileSnap.data?.data() as Map<String, dynamic>?;
+        final displayName = (data?['name'] as String?) ?? 'Dumindu';
+        final email = (data?['email'] as String?) ?? 'Tap edit to set up';
+
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            boxShadow: const [BoxShadow(color: AppColors.cardShadow, blurRadius: 8, offset: Offset(0, 3))],
+          ),
+          child: Column(
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.brass.withValues(alpha: 0.35),
-                      AppColors.brass.withValues(alpha: 0.18),
-                    ],
-                  ),
-                  border: Border.all(color: AppColors.brass, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.brass.withValues(alpha: 0.30),
-                      blurRadius: 14,
-                      spreadRadius: -2,
-                    ),
-                  ],
-                ),
-                child: const Center(child: Icon(Icons.person, size: 30, color: AppColors.pineDeep)),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Alex Morgan', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-                    const Text('alex.morgan@email.com', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryActive.withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text('Owner', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+              Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          AppColors.brass.withValues(alpha: 0.35),
+                          AppColors.brass.withValues(alpha: 0.18),
+                        ],
+                      ),
+                      border: Border.all(color: AppColors.brass, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.brass.withValues(alpha: 0.30),
+                          blurRadius: 14,
+                          spreadRadius: -2,
                         ),
-                        const SizedBox(width: 6),
-                        const Text('· Home Hub v2.4', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                       ],
                     ),
-                  ],
-                ),
+                    child: Center(
+                      child: Text(
+                        displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U',
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.pineDeep),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(displayName, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                        Text(email, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryActive.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text('Owner', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+                            ),
+                            const SizedBox(width: 6),
+                            const Text('· Home Hub v2.4', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => _showEditProfileDialog(displayName, email),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Icon(Icons.edit_outlined, size: 20, color: AppColors.textSecondary),
+                    ),
+                  ),
+                ],
               ),
-              const Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: StreamBuilder<List<Device>>(
+                      stream: _service.streamAllDevices(),
+                      builder: (context, snap) => _statColumn('${snap.data?.length ?? 0}', 'Devices'),
+                    ),
+                  ),
+                  Expanded(
+                    child: FutureBuilder<int>(
+                      future: _service.countDistinctRooms(),
+                      builder: (context, snap) => _statColumn('${snap.data ?? 0}', 'Rooms'),
+                    ),
+                  ),
+                  Expanded(
+                    child: StreamBuilder<int>(
+                      stream: _service.streamSceneCount(),
+                      builder: (context, snap) => _statColumn('${snap.data ?? 0}', 'Scenes'),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: StreamBuilder<List<Device>>(
-                  stream: _service.streamAllDevices(),
-                  builder: (context, snap) => _statColumn('${snap.data?.length ?? 0}', 'Devices'),
-                ),
-              ),
-              Expanded(
-                child: FutureBuilder<int>(
-                  future: _service.countDistinctRooms(),
-                  builder: (context, snap) => _statColumn('${snap.data ?? 0}', 'Rooms'),
-                ),
-              ),
-              Expanded(
-                child: StreamBuilder<int>(
-                  stream: _service.streamSceneCount(),
-                  builder: (context, snap) => _statColumn('${snap.data ?? 0}', 'Scenes'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -139,6 +160,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Text(value, style: AppFonts.display(fontSize: 21, fontWeight: FontWeight.w600)),
         Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
       ],
+    );
+  }
+
+  Future<void> _showEditProfileDialog(String currentName, String currentEmail) async {
+    final nameCtrl = TextEditingController(text: currentName == 'Dumindu' ? '' : currentName);
+    final emailCtrl = TextEditingController(text: currentEmail == 'Tap edit to set up' ? '' : currentEmail);
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Profile'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: 'Display Name'),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailCtrl,
+              decoration: const InputDecoration(labelText: 'Email'),
+              keyboardType: TextInputType.emailAddress,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              await _service.updateProfile(
+                name: nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : null,
+                email: emailCtrl.text.trim().isNotEmpty ? emailCtrl.text.trim() : null,
+              );
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 

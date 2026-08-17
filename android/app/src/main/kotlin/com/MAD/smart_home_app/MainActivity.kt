@@ -1,4 +1,4 @@
-package com.MAD.smart_home_app
+package com.mad.smart_home_app
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -236,28 +236,7 @@ class SeedData {
     }
     await batch.commit();
 
-    // 11. House members
-    await _db.collection('houseMembers').add({
-      'name': 'Alex Morgan',
-      'email': 'alex.morgan@email.com',
-      'role': 'Owner',
-      'online': true,
-      'avatarUrl': '',
-    });
-    await _db.collection('houseMembers').add({
-      'name': 'Jamie Lee',
-      'email': 'jamie.lee@email.com',
-      'role': 'Admin',
-      'online': true,
-      'avatarUrl': '',
-    });
-    await _db.collection('houseMembers').add({
-      'name': 'Sam Rivera',
-      'email': 'sam.rivera@email.com',
-      'role': 'Guest',
-      'online': false,
-      'avatarUrl': '',
-    });
+    // 11. (House members removed per request)
 
     // 12. Scenes (just used for the Profile screen's "Scenes" stat)
     await _db.collection('scenes').add({'name': 'Good Morning'});
