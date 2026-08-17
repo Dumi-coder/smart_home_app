@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../models/device.dart';
 import '../services/firestore_service.dart';
 import '../theme/app_theme.dart';
@@ -8,8 +9,9 @@ import '../widgets/floor_chip.dart';
 /// Live Cameras tab. Cameras are grouped into "Exterior" (a pseudo-floor
 /// with no floor document, see SeedData) plus one group per real floor.
 /// Selecting a floor pill filters the thumbnail row; tapping a thumbnail
-/// swaps the main viewer. The feed itself is a static demo image with a
-/// pulsing LIVE indicator — there's no real RTSP/WebRTC stream wired up.
+/// swaps the main viewer. When a camera is ON, its related floor plan image
+/// (from Firebase Storage, stored as imageUrl in Firestore) is shown.
+/// When OFF, a muted dark placeholder is displayed.
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
 
@@ -130,9 +132,8 @@ class _CameraScreenState extends State<CameraScreen>
   // ═══════════════════════════════════════════════
   Widget _buildViewer(List<Device> cameras) {
     final camera = _selectedCamera;
-    final imageUrl = camera is CameraDevice && camera.snapshotUrl.isNotEmpty
-        ? camera.snapshotUrl
-        : null;
+    final isOn = camera != null && camera.status == DeviceStatus.on;
+    final floorId = camera?.floorId;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.card),
@@ -141,34 +142,133 @@ class _CameraScreenState extends State<CameraScreen>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Demo feed image (or a dark placeholder if nothing selected)
-            if (imageUrl != null)
-              Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
+            // ── Feed content ──
+            if (!isOn)
+              // Camera is off or none selected → muted placeholder
+              _buildMutedPlaceholder(camera)
+            else
+              // Camera is ON → show floor plan image from Firebase
+              StreamBuilder<String?>(
+                stream: floorId != null
+                    ? _service.streamFloorImageUrl(floorId)
+                    : const Stream.empty(),
+                builder: (context, imageSnap) {
+                  final imageUrl = imageSnap.data;
+
+                  if (imageUrl != null && imageUrl.isNotEmpty) {
+                    return FutureBuilder<String>(
+                      future: imageUrl.startsWith('gs://')
+                          ? FirebaseStorage.instance.refFromURL(imageUrl).getDownloadURL()
+                          : Future.value(imageUrl),
+                      builder: (context, urlSnap) {
+                        if (urlSnap.connectionState == ConnectionState.waiting) {
+                          return Container(
+                            color: Colors.black87,
+                            child: const Center(
+                              child: CircularProgressIndicator(color: AppColors.primaryActive),
+                            ),
+                          );
+                        }
+
+                        if (urlSnap.hasError || !urlSnap.hasData) {
+                          print("Error getting download URL: ${urlSnap.error}");
+                          return Container(
+                            color: Colors.black87,
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.broken_image_outlined,
+                                      color: Colors.white54, size: 40),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Failed to load floor image\n${urlSnap.error}',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.5),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        return Image.network(
+                          urlSnap.data!,
+                          key: ValueKey(urlSnap.data!),
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return Container(
+                              color: Colors.black87,
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primaryActive,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stack) => Container(
+                            color: Colors.black87,
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.broken_image_outlined,
+                                      color: Colors.white54, size: 40),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Failed to load floor image\n$error',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.5),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  }
+
+                  // No imageUrl set for this floor yet
                   return Container(
                     color: Colors.black87,
-                    child: const Center(
-                      child: CircularProgressIndicator(color: AppColors.primaryActive),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.image_not_supported_outlined,
+                              color: Colors.white54, size: 40),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No floor image uploaded yet',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.5),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Upload an image to Firebase Storage\nand set imageUrl on the floor document',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },
-                errorBuilder: (context, error, stack) => Container(
-                  color: Colors.black87,
-                  child: const Center(
-                    child: Icon(Icons.videocam_off_outlined, color: Colors.white54, size: 40),
-                  ),
-                ),
-              )
-            else
-              Container(
-                color: Colors.black87,
-                child: const Center(
-                  child: Icon(Icons.videocam_off_outlined, color: Colors.white54, size: 40),
-                ),
               ),
+
             // Darken gradient for legibility of overlays
             Container(
               decoration: BoxDecoration(
@@ -184,18 +284,23 @@ class _CameraScreenState extends State<CameraScreen>
                 ),
               ),
             ),
-            // Top-left LIVE · REC badges
+
+            // Top-left badges
             Positioned(
               top: 14,
               left: 14,
               child: Row(
                 children: [
-                  _pulsingBadge('LIVE', AppColors.statusOn),
-                  const SizedBox(width: 8),
-                  _pulsingBadge('REC', AppColors.statusError, dotOnly: false),
+                  if (isOn) ...[
+                    _pulsingBadge('LIVE', AppColors.statusOn),
+                    const SizedBox(width: 8),
+                    _pulsingBadge('REC', AppColors.statusError, dotOnly: false),
+                  ] else
+                    _statusBadge('OFFLINE', AppColors.textSecondary),
                 ],
               ),
             ),
+
             // Top-right notification bell
             Positioned(
               top: 14,
@@ -209,6 +314,7 @@ class _CameraScreenState extends State<CameraScreen>
                 child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 18),
               ),
             ),
+
             // Bottom-left name + location
             if (camera != null)
               Positioned(
@@ -226,22 +332,108 @@ class _CameraScreenState extends State<CameraScreen>
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    if (camera.room != null)
-                      Text(
-                        camera.room!,
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(
+                            color: isOn ? AppColors.statusOn : AppColors.statusOff,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        Text(
+                          isOn ? 'Online' : 'Offline',
+                          style: TextStyle(
+                            color: isOn ? Colors.white70 : Colors.white38,
+                            fontSize: 12,
+                          ),
+                        ),
+                        if (camera.room != null) ...[
+                          Text(
+                            '  •  ${camera.room!}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),
+
             // PTZ dpad + zoom + mic + snapshot
-            Positioned(
-              right: 14,
-              bottom: 14,
-              child: _buildPtzControls(),
-            ),
+            if (isOn)
+              Positioned(
+                right: 14,
+                bottom: 14,
+                child: _buildPtzControls(),
+              ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Muted dark placeholder when camera is OFF or nothing is selected.
+  Widget _buildMutedPlaceholder(Device? camera) {
+    return Container(
+      color: const Color(0xFF1A1A2E),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.videocam_off_outlined,
+              color: Colors.white.withValues(alpha: 0.25),
+              size: 48,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              camera == null ? 'Select a camera' : 'Camera is off',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.4),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            if (camera != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Turn on the camera to view the floor feed',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statusBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700),
+          ),
+        ],
       ),
     );
   }
@@ -364,7 +556,7 @@ class _ThumbnailTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = camera is CameraDevice ? (camera as CameraDevice).snapshotUrl : '';
+    final isOn = camera.status == DeviceStatus.on;
 
     return GestureDetector(
       onTap: onTap,
@@ -380,14 +572,22 @@ class _ThumbnailTile extends StatelessWidget {
         ),
         child: Row(
           children: [
+            // Thumbnail preview
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: SizedBox(
                 width: 64,
                 height: 48,
-                child: imageUrl.isNotEmpty
-                    ? Image.network(imageUrl, fit: BoxFit.cover)
-                    : Container(color: AppColors.background),
+                child: Container(
+                  color: isOn
+                      ? AppColors.primaryActive.withValues(alpha: 0.15)
+                      : AppColors.background,
+                  child: Icon(
+                    isOn ? Icons.videocam : Icons.videocam_off_outlined,
+                    size: 22,
+                    color: isOn ? AppColors.primaryActive : AppColors.textSecondary,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -396,8 +596,24 @@ class _ThumbnailTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(camera.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  if (camera.room != null)
-                    Text(camera.room!, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(
+                        isOn ? 'Online' : 'Offline',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: isOn ? AppColors.statusOn : AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (camera.room != null)
+                        Text(
+                          '  •  ${camera.room!}',
+                          style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -405,7 +621,7 @@ class _ThumbnailTile extends StatelessWidget {
               width: 8,
               height: 8,
               decoration: BoxDecoration(
-                color: camera.status == DeviceStatus.on ? AppColors.statusOn : AppColors.statusOff,
+                color: isOn ? AppColors.statusOn : AppColors.statusOff,
                 shape: BoxShape.circle,
               ),
             ),

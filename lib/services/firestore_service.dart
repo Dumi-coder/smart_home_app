@@ -11,11 +11,28 @@ import '../models/energy_reading.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // ── Stream caches to prevent duplicate Firestore listeners ──
+  // We cache the raw `snapshots()` streams because Firestore natively
+  // replays the latest value to new listeners. We then apply `.map()`
+  // on demand so the UI updates instantly when switching views.
+  final Map<String, Stream<QuerySnapshot>> _rawDeviceStreamCache = {};
+  final Map<String, Stream<QuerySnapshot>> _roomStreamCache = {};
+  Stream<List<Device>>? _allDevicesStream;
+  Stream<QuerySnapshot>? _floorsStream;
+  Stream<QuerySnapshot>? _unackAlertsRawStream;
+  Stream<DocumentSnapshot>? _profileStream;
+  Stream<DocumentSnapshot>? _preferencesStream;
+  Stream<QuerySnapshot>? _notificationAlertsRawStream;
+  Stream<QuerySnapshot>? _energyUsageRawStream;
+  Stream<QuerySnapshot>? _houseMembersRawStream;
+  Stream<QuerySnapshot>? _scenesRawStream;
+
   // ---------------- Floors ----------------
 
-  /// Stream of all floors, live-updating.
+  /// Stream of all floors, live-updating (cached).
   Stream<QuerySnapshot> streamFloors() {
-    return _db.collection('floors').snapshots();
+    _floorsStream ??= _db.collection('floors').snapshots();
+    return _floorsStream!;
   }
 
   Future<void> addFloor({
@@ -51,7 +68,10 @@ class FirestoreService {
   // ---------------- Rooms ----------------
 
   Stream<QuerySnapshot> streamRooms(String floorId) {
-    return _db.collection('floors').doc(floorId).collection('rooms').snapshots();
+    return _roomStreamCache.putIfAbsent(
+      floorId,
+      () => _db.collection('floors').doc(floorId).collection('rooms').snapshots(),
+    );
   }
 
   Future<void> addRoom(String floorId, String name) async {
@@ -70,12 +90,16 @@ class FirestoreService {
 
   /// Stream of devices for a given floor, parsed into typed Device objects.
   Stream<List<Device>> streamDevices(String floorId) {
-    return _db
-        .collection('floors')
-        .doc(floorId)
-        .collection('devices')
-        .snapshots()
-        .map((snapshot) => snapshot.docs
+    final rawStream = _rawDeviceStreamCache.putIfAbsent(
+      floorId,
+      () => _db
+          .collection('floors')
+          .doc(floorId)
+          .collection('devices')
+          .snapshots(),
+    );
+    
+    return rawStream.map((snapshot) => snapshot.docs
         .map((doc) => Device.fromFirestore(floorId, doc))
         .toList());
   }
@@ -353,6 +377,7 @@ class FirestoreService {
   // ---------------- Usage logs / reporting ----------------
 
   Stream<QuerySnapshot> streamUsageLogs(String deviceId) {
+    // Usage logs are per-device and rarely shared, no cache needed.
     return _db
         .collection('usageLogs')
         .where('deviceId', isEqualTo: deviceId)
@@ -369,58 +394,86 @@ class FirestoreService {
         .snapshots();
   }
 
+  /// Invalidate all cached streams. Call this if the underlying data
+  /// structure changes (e.g. a floor is added/deleted) so new listeners
+  /// are created on next access.
+  void invalidateCache() {
+    _rawDeviceStreamCache.clear();
+    _roomStreamCache.clear();
+    _allDevicesStream = null;
+    _floorsStream = null;
+    _unackAlertsRawStream = null;
+    _profileStream = null;
+    _preferencesStream = null;
+    _notificationAlertsRawStream = null;
+    _energyUsageRawStream = null;
+    _houseMembersRawStream = null;
+    _scenesRawStream = null;
+  }
+
   // ────────────────────────────────────────────────
   //  NEW: helpers added for the Home Screen redesign
   // ────────────────────────────────────────────────
 
-  /// Stream of ALL devices across every floor.
-  /// Fetches floors first, then merges device streams.
+  /// Stream of ALL devices across every floor (cached).
+  /// Uses a stable approach: listens to floors once, then maintains
+  /// per-floor device subscriptions without tearing them down on every
+  /// floors emission.
   Stream<List<Device>> streamAllDevices() {
-    return _db.collection('floors').snapshots().asyncExpand((floorsSnap) {
-      if (floorsSnap.docs.isEmpty) return Stream.value(<Device>[]);
-
-      final streams = floorsSnap.docs.map((floorDoc) {
-        return _db
-            .collection('floors')
-            .doc(floorDoc.id)
-            .collection('devices')
-            .snapshots()
-            .map((snap) => snap.docs
-                .map((d) => Device.fromFirestore(floorDoc.id, d))
-                .toList());
-      }).toList();
-
-      // Combine all per-floor streams into one merged list.
-      return _combineStreams(streams);
-    });
+    _allDevicesStream ??= _createAllDevicesStream();
+    return _allDevicesStream!;
   }
 
-  /// Combine multiple device-list streams into a single stream.
-  Stream<List<Device>> _combineStreams(List<Stream<List<Device>>> streams) {
-    if (streams.isEmpty) return Stream.value([]);
-    if (streams.length == 1) return streams.first;
-
-    final latestValues = List<List<Device>?>.filled(streams.length, null);
-    // ignore: close_sinks
+  Stream<List<Device>> _createAllDevicesStream() {
     final controller = StreamController<List<Device>>.broadcast();
-    final subscriptions = <StreamSubscription>[];
+    final Map<String, List<Device>> floorDevices = {};
+    final Map<String, StreamSubscription> floorSubs = {};
+    StreamSubscription<QuerySnapshot>? floorsSub;
 
-    for (int i = 0; i < streams.length; i++) {
-      final index = i;
-      subscriptions.add(streams[index].listen((data) {
-        latestValues[index] = data;
-        // Emit combined list once every stream has delivered at least once.
-        if (latestValues.every((v) => v != null)) {
-          controller
-              .add(latestValues.expand((v) => v!).toList());
-        }
-      }));
+    void emit() {
+      controller.add(floorDevices.values.expand((v) => v).toList());
     }
 
+    floorsSub = _db.collection('floors').snapshots().listen((floorsSnap) {
+      final currentFloorIds = floorsSnap.docs.map((d) => d.id).toSet();
+
+      // Remove subscriptions for deleted floors.
+      final removedIds = floorSubs.keys.toSet().difference(currentFloorIds);
+      for (final id in removedIds) {
+        floorSubs[id]?.cancel();
+        floorSubs.remove(id);
+        floorDevices.remove(id);
+      }
+
+      // Add subscriptions for new floors.
+      for (final floorDoc in floorsSnap.docs) {
+        final fid = floorDoc.id;
+        if (!floorSubs.containsKey(fid)) {
+          floorSubs[fid] = _db
+              .collection('floors')
+              .doc(fid)
+              .collection('devices')
+              .snapshots()
+              .listen((devSnap) {
+            floorDevices[fid] = devSnap.docs
+                .map((d) => Device.fromFirestore(fid, d))
+                .toList();
+            emit();
+          });
+        }
+      }
+
+      // If floors were removed, re-emit.
+      if (removedIds.isNotEmpty) emit();
+    });
+
     controller.onCancel = () {
-      for (final sub in subscriptions) {
+      floorsSub?.cancel();
+      for (final sub in floorSubs.values) {
         sub.cancel();
       }
+      floorSubs.clear();
+      floorDevices.clear();
     };
 
     return controller.stream;
@@ -428,11 +481,12 @@ class FirestoreService {
 
   /// Count of alerts where acknowledged == false.
   Stream<int> streamUnacknowledgedAlertCount() {
-    return _db
+    _unackAlertsRawStream ??= _db
         .collection('alerts')
         .where('acknowledged', isEqualTo: false)
-        .snapshots()
-        .map((snap) => snap.docs.length);
+        .snapshots();
+        
+    return _unackAlertsRawStream!.map((snap) => snap.docs.length);
   }
 
   /// Batch-toggle all devices of a given type (e.g. 'bulb') across all floors.
@@ -484,12 +538,13 @@ class FirestoreService {
 
   /// Typed stream of every alert, newest first.
   Stream<List<NotificationAlert>> streamNotificationAlerts() {
-    return _db
+    _notificationAlertsRawStream ??= _db
         .collection('alerts')
         .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => NotificationAlert.fromFirestore(d)).toList());
+        .snapshots();
+        
+    return _notificationAlertsRawStream!.map((snap) =>
+        snap.docs.map((d) => NotificationAlert.fromFirestore(d)).toList());
   }
 
   Future<void> markAlertRead(String alertId) async {
@@ -537,12 +592,13 @@ class FirestoreService {
   /// Stream of every energy reading, used by the Analysis screen to compute
   /// today/week/month totals, room breakdowns and top consumers client-side.
   Stream<List<EnergyReading>> streamEnergyUsage() {
-    return _db
+    _energyUsageRawStream ??= _db
         .collection('energyUsage')
         .orderBy('date', descending: true)
-        .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => EnergyReading.fromFirestore(d)).toList());
+        .snapshots();
+        
+    return _energyUsageRawStream!.map((snap) =>
+        snap.docs.map((d) => EnergyReading.fromFirestore(d)).toList());
   }
 
   Future<void> addEnergyReading(EnergyReading reading) async {
@@ -554,7 +610,8 @@ class FirestoreService {
   // ────────────────────────────────────────────────
 
   Stream<List<HouseMember>> streamHouseMembers() {
-    return _db.collection('houseMembers').snapshots().map(
+    _houseMembersRawStream ??= _db.collection('houseMembers').snapshots();
+    return _houseMembersRawStream!.map(
         (snap) => snap.docs.map((d) => HouseMember.fromFirestore(d)).toList());
   }
 
@@ -564,7 +621,8 @@ class FirestoreService {
 
   /// Count of saved scenes, shown as a stat on the Profile screen.
   Stream<int> streamSceneCount() {
-    return _db.collection('scenes').snapshots().map((s) => s.docs.length);
+    _scenesRawStream ??= _db.collection('scenes').snapshots();
+    return _scenesRawStream!.map((s) => s.docs.length);
   }
 
   /// Count of distinct rooms across every floor, shown as a stat on the
@@ -585,10 +643,34 @@ class FirestoreService {
   DocumentReference get preferencesDoc =>
       _db.collection('settings').doc('preferences');
 
-  Stream<DocumentSnapshot> streamPreferences() => preferencesDoc.snapshots();
+  Stream<DocumentSnapshot> streamPreferences() {
+    _preferencesStream ??= preferencesDoc.snapshots();
+    return _preferencesStream!;
+  }
 
   Future<void> setPreference(String key, bool value) async {
     await preferencesDoc.set({key: value}, SetOptions(merge: true));
+  }
+
+  // ────────────────────────────────────────────────
+  //  USER PROFILE (stored in Firestore, no auth required)
+  // ────────────────────────────────────────────────
+
+  DocumentReference get profileDoc =>
+      _db.collection('settings').doc('profile');
+
+  Stream<DocumentSnapshot> streamProfile() {
+    _profileStream ??= profileDoc.snapshots();
+    return _profileStream!;
+  }
+
+  Future<void> updateProfile({String? name, String? email}) async {
+    final updates = <String, dynamic>{};
+    if (name != null) updates['name'] = name;
+    if (email != null) updates['email'] = email;
+    if (updates.isNotEmpty) {
+      await profileDoc.set(updates, SetOptions(merge: true));
+    }
   }
 
   // ────────────────────────────────────────────────
@@ -606,6 +688,22 @@ class FirestoreService {
         .snapshots()
         .map((snap) =>
             snap.docs.map((d) => Device.fromFirestore(floorId, d)).toList());
+  }
+
+  /// Returns a stream of the floor's imageUrl field.
+  /// Returns null if the floor document doesn't exist or has no imageUrl.
+  Stream<String?> streamFloorImageUrl(String floorId) {
+    return _db
+        .collection('floors')
+        .doc(floorId)
+        .snapshots()
+        .map((doc) {
+      if (!doc.exists) return null;
+      final data = doc.data();
+      if (data == null) return null;
+      final url = data['imageUrl'] as String?;
+      return (url != null && url.isNotEmpty) ? url : null;
+    });
   }
 
   // ────────────────────────────────────────────────
